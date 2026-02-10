@@ -2,6 +2,9 @@
 *.egg-info/
 *.egg
 
+# E2E sample DB (scripts/create_sample_duckdb.py)
+sample.duckdb
+
 # Python
 __pycache__/
 *.py[cod]

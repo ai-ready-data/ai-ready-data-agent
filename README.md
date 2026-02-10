@@ -91,6 +91,9 @@ Specifications, design rationale, and architecture:
 # One-shot full pipeline
 aird assess -c "duckdb://:memory:" -o markdown
 
+# Try the Clean factor suite on a real DB (create sample, then assess)
+python scripts/create_sample_duckdb.py && aird assess -c "duckdb://sample.duckdb" -o markdown
+
 # Composable: discover → run → report → save
 aird discover -c "duckdb://file.duckdb" -o inventory.json
 aird run -c "duckdb://file.duckdb" --inventory inventory.json -o results.json
