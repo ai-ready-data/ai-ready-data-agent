@@ -1,4 +1,4 @@
-# The AI-Ready Data Framework
+# The AI-Ready Data Project
 
 **Six factors that determine whether your data can reliably power AI systems.**
 
@@ -39,9 +39,9 @@ Built-in support for **DuckDB** (ANSI SQL baseline). Additional platforms (e.g. 
 
 ## What's In This Repo
 
-### [The Framework](factors/)
+### [The Factors](factors/)
 
-The AI-Ready Data Framework defines six factors of AI-ready data with requirements at three workload levels (L1: Analytics, L2: RAG, L3: Training).
+The AI-Ready Data Project defines six factors of AI-ready data with requirements at three workload levels (L1: Analytics, L2: RAG, L3: Training).
 
 | Factor | Name | Definition |
 |--------|------|-------------|
@@ -109,6 +109,10 @@ aird suites
 # Compare two reports (by id or file)
 aird diff <id1> <id2>
 ```
+
+## For coding agents
+
+Start at **[AGENTS.md](AGENTS.md)** for the playbook. It outlines the workflow (interview → connect → discover → assess → interpret → remediate → compare), stopping points, and where to find the CLI, framework, and skills. Sub-skills live in [skills/](skills/) with step-by-step guidance per phase.
 
 ## Contributing
 
