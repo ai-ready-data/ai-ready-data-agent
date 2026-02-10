@@ -2,11 +2,11 @@
 
 **Six factors that determine whether your data can reliably power AI systems.**
 
-An open standard defining what "AI-ready data" actually means, plus an assessment agent that turns the framework into executable, red/green test suites against your data infrastructure.
+An open standard defining what "AI-ready data" actually means, plus an assessment agent that turns the definition into executable, red/green test suites against your data infrastructure.
 
 ## Background
 
-The contributors to this framework include practicing data engineers, ML practitioners, and platform architects who have built and operated AI systems across industries. This document synthesizes our collective experience building data systems that power reliable and trustworthy AI systems.
+The contributors to this project include practicing data engineers, ML practitioners, and platform architects who have built and operated AI systems across industries. This document synthesizes our collective experience building data systems that power reliable and trustworthy AI systems.
 
 The format is inspired by Martin Fowler's work on defining technical patterns, the 12-Factor App methodology, and the 12 Factor Agent.
 
@@ -131,7 +131,7 @@ aird diff <id1> <id2>
 
 ## For coding agents
 
-Start at **[AGENTS.md](AGENTS.md)** for the playbook. It outlines the workflow (interview → connect → discover → assess → interpret → remediate → compare), stopping points, and where to find the CLI, framework, and skills. Sub-skills live in [skills/](skills/) with step-by-step guidance per phase.
+Start at **[AGENTS.md](AGENTS.md)** for the playbook. It outlines the workflow (interview → connect → discover → assess → interpret → remediate → compare), stopping points, and where to find the CLI, project, and skills. Sub-skills live in [skills/](skills/) with step-by-step guidance per phase.
 
 ## Contributing
 
