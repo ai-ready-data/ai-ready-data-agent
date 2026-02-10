@@ -144,7 +144,7 @@ See the repo README for Quick Start and onboarding.
 ## 6. Documentation and specification roadmap
 
 - **project-spec.md (this document):** High-level project specification; lives at `docs/specs/project-spec.md`.
-- **Future specs:** [Factor spec](factor-spec.md) (abstract shape of a factor; requirement keys; mapping to tests and remediation). [CLI spec](cli-spec.md) (commands, composable flow, artifacts, config). Agentic system spec (agent + skills); Test suite spec (model, platforms, extensibility). These may be linked from here as they are written.
+- **Future specs:** [Factor spec](factor-spec.md) (abstract shape of a factor; requirement keys; mapping to tests and remediation). [CLI spec](cli-spec.md) (commands, composable flow, artifacts, config). [Agentic system spec](agentic-system-spec.md) (agent + skills, AGENTS.md, skill model). Test suite spec (model, platforms, extensibility). These may be linked from here as they are written.
 - **Reasoning:** Design decisions and rationale are recorded in project-spec sections and/or in the future spec docs.
 - **Versioning:** How we version the framework (factors, workloads), CLI, and skills will be defined in CONTRIBUTING or a future spec; not a gate for the initial release.
 
