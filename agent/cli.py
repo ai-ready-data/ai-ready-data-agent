@@ -1,0 +1,279 @@
+"""CLI entry point: subcommands, arg parse, config resolve, dispatch. Machine output to stdout only."""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+from agent.config import Config
+from agent.exceptions import UsageError, AssessmentRuntimeError
+from agent import storage
+from agent.discovery import discover
+from agent.run import run_tests
+from agent.report import build_report, report_to_markdown, load_report_from_storage
+from agent.pipeline import run_assess
+from agent.audit import AuditSink
+from agent.platform.registry import get_suite
+from agent.platform import get_platform
+
+
+def _config_from_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> Config:
+    cfg = Config.from_env()
+    cfg = cfg.with_args(
+        connection=getattr(args, "connection", None) or cfg.connection,
+        schemas=getattr(args, "schema", None) or cfg.schemas,
+        tables=getattr(args, "tables", None) or cfg.tables,
+        context_path=Path(args.context) if getattr(args, "context", None) else cfg.context_path,
+        suite=getattr(args, "suite", None) or cfg.suite,
+        thresholds_path=Path(args.thresholds) if getattr(args, "thresholds", None) else cfg.thresholds_path,
+        output=getattr(args, "output", None) or cfg.output,
+        no_save=getattr(args, "no_save", None) or cfg.no_save,
+        compare=getattr(args, "compare", None) or cfg.compare,
+        dry_run=getattr(args, "dry_run", None) or cfg.dry_run,
+        interactive=getattr(args, "interactive", None) or cfg.interactive,
+        audit=getattr(args, "audit", None) or cfg.audit,
+        db_path=Path(args.db_path) if getattr(args, "db_path", None) else cfg.db_path,
+        log_level=getattr(args, "log_level", None) or cfg.log_level,
+        inventory_path=getattr(args, "inventory", None),
+        results_path=getattr(args, "results", None),
+        report_path=getattr(args, "report", None),
+        report_id=getattr(args, "id", None),
+        history_connection_filter=getattr(args, "connection_filter", None),
+        history_limit=getattr(args, "limit", None) or cfg.history_limit,
+        diff_left=getattr(args, "left", None) or (args.left_id if hasattr(args, "left_id") else None),
+        diff_right=getattr(args, "right", None) or (args.right_id if hasattr(args, "right_id") else None),
+    )
+    return cfg
+
+
+def _read_stdin() -> str:
+    return sys.stdin.read()
+
+
+def _write_stdout(data: str) -> None:
+    sys.stdout.write(data)
+    if not data.endswith("\n"):
+        sys.stdout.write("\n")
+
+
+def cmd_assess(cfg: Config) -> None:
+    report = run_assess(cfg)
+    if report.get("dry_run"):
+        _write_stdout(json.dumps(report))
+        return
+    out = cfg.output
+    if out == "stdout":
+        _write_stdout(json.dumps(report))
+    elif out == "markdown":
+        _write_stdout(report_to_markdown(report))
+    elif out.startswith("json:"):
+        path = out.split(":", 1)[1]
+        Path(path).write_text(json.dumps(report, indent=2))
+    else:
+        _write_stdout(report_to_markdown(report))
+    if report.get("_diff_previous_id"):
+        _write_stdout(f"\n(Diff vs previous: {report['_diff_previous_id']})")
+
+
+def cmd_discover(cfg: Config) -> None:
+    if not cfg.connection:
+        raise UsageError("--connection or AIRD_CONNECTION_STRING required")
+    inv = discover(cfg.connection, schemas=cfg.schemas or None, tables=cfg.tables or None)
+    if cfg.output == "stdout" or not cfg.output or cfg.output == "-":
+        _write_stdout(json.dumps(inv, indent=2))
+    else:
+        Path(cfg.output).write_text(json.dumps(inv, indent=2))
+
+
+def cmd_run(cfg: Config) -> None:
+    if not cfg.connection:
+        raise UsageError("--connection or AIRD_CONNECTION_STRING required")
+    inv_raw = _read_stdin() if cfg.inventory_path == "-" else Path(cfg.inventory_path or "").read_text()
+    inv = json.loads(inv_raw)
+    audit = AuditSink(cfg.db_path, cfg.audit) if cfg.audit else None
+    results = run_tests(cfg.connection, inv, suite_name=cfg.suite, dry_run=cfg.dry_run, audit=audit)
+    if cfg.results_path and cfg.results_path != "-":
+        Path(cfg.results_path).write_text(json.dumps(results, indent=2))
+    else:
+        _write_stdout(json.dumps(results, indent=2))
+
+
+def cmd_report(cfg: Config) -> None:
+    if cfg.report_id:
+        report = load_report_from_storage(cfg.db_path, cfg.report_id)
+        if not report:
+            raise AssessmentRuntimeError(f"Assessment not found: {cfg.report_id}")
+    else:
+        if not cfg.results_path:
+            raise UsageError("--results or --id required")
+        results_raw = _read_stdin() if cfg.results_path == "-" else Path(cfg.results_path).read_text()
+        results = json.loads(results_raw)
+        report = build_report(results, connection_fingerprint="")
+    out = cfg.output
+    if out == "stdout" or out == "json":
+        _write_stdout(json.dumps(report, indent=2))
+    elif out == "markdown":
+        _write_stdout(report_to_markdown(report))
+    elif out.startswith("json:"):
+        Path(out.split(":", 1)[1]).write_text(json.dumps(report, indent=2))
+    else:
+        _write_stdout(report_to_markdown(report))
+
+
+def cmd_save(cfg: Config) -> None:
+    report_raw = _read_stdin() if (cfg.report_path == "-" or not cfg.report_path) else Path(cfg.report_path).read_text()
+    report = json.loads(report_raw)
+    conn = storage.get_connection(cfg.db_path)
+    try:
+        aid = storage.save_report(conn, report)
+        _write_stdout(aid)
+    finally:
+        conn.close()
+
+
+def cmd_history(cfg: Config) -> None:
+    conn = storage.get_connection(cfg.db_path)
+    try:
+        items = storage.list_assessments(
+            conn,
+            connection_filter=cfg.history_connection_filter,
+            limit=cfg.history_limit,
+        )
+    finally:
+        conn.close()
+    for a in items:
+        s = a.get("summary", {})
+        _write_stdout(f"{a['id']}\t{a['created_at']}\tL1:{s.get('l1_pct', 0)}%\tL2:{s.get('l2_pct', 0)}%\tL3:{s.get('l3_pct', 0)}%\t{a.get('connection_fingerprint', '')}")
+
+
+def cmd_diff(cfg: Config) -> None:
+    conn = storage.get_connection(cfg.db_path)
+    try:
+        left = storage.get_report(conn, cfg.diff_left) if cfg.diff_left and len(cfg.diff_left) == 36 else None
+        if not left and cfg.diff_left:
+            left = json.loads(Path(cfg.diff_left).read_text())
+        right = storage.get_report(conn, cfg.diff_right) if cfg.diff_right and len(cfg.diff_right) == 36 else None
+        if not right and cfg.diff_right:
+            right = json.loads(Path(cfg.diff_right).read_text())
+    finally:
+        conn.close()
+    if not left or not right:
+        raise UsageError("diff requires two assessment ids or --left/--right paths")
+    l_s = left.get("summary", {})
+    r_s = right.get("summary", {})
+    _write_stdout(f"Left:  L1={l_s.get('l1_pct')}% L2={l_s.get('l2_pct')}% L3={l_s.get('l3_pct')}%")
+    _write_stdout(f"Right: L1={r_s.get('l1_pct')}% L2={r_s.get('l2_pct')}% L3={r_s.get('l3_pct')}%")
+
+
+def cmd_suites(_cfg: Config) -> None:
+    import agent.platform.duckdb_adapter  # noqa: F401
+    from agent.platform.registry import _suites
+    for name in sorted(_suites.keys()):
+        tests = _suites[name]
+        _write_stdout(f"{name}\t{len(tests)} tests")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(prog="aird", description="AI-Ready Data assessment CLI")
+    parser.add_argument("--log-level", default=None, help="Log level")
+    parser.add_argument("--db-path", default=None, help="SQLite DB path")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    # assess
+    p_assess = subparsers.add_parser("assess", help="Full pipeline: discover → run → report → save")
+    p_assess.add_argument("-c", "--connection", default=None)
+    p_assess.add_argument("-s", "--schema", action="append", default=[], dest="schema")
+    p_assess.add_argument("-t", "--tables", action="append", default=[], dest="tables")
+    p_assess.add_argument("--suite", default="auto")
+    p_assess.add_argument("-o", "--output", default="markdown")
+    p_assess.add_argument("--thresholds", default=None)
+    p_assess.add_argument("--context", default=None)
+    p_assess.add_argument("--no-save", action="store_true")
+    p_assess.add_argument("--compare", action="store_true")
+    p_assess.add_argument("--dry-run", action="store_true")
+    p_assess.add_argument("-i", "--interactive", action="store_true")
+    p_assess.add_argument("--audit", action="store_true")
+
+    # discover
+    p_disc = subparsers.add_parser("discover", help="Connect and output inventory")
+    p_disc.add_argument("-c", "--connection", default=None)
+    p_disc.add_argument("-s", "--schema", action="append", default=[], dest="schema")
+    p_disc.add_argument("-t", "--tables", action="append", default=[], dest="tables")
+    p_disc.add_argument("--context", default=None)
+    p_disc.add_argument("-o", "--output", default="stdout")
+    p_disc.add_argument("--inventory", default=None, help="Write inventory to file (default stdout)")
+
+    # run
+    p_run = subparsers.add_parser("run", help="Run tests from inventory")
+    p_run.add_argument("-c", "--connection", default=None)
+    p_run.add_argument("--inventory", default="-")
+    p_run.add_argument("--suite", default="auto")
+    p_run.add_argument("--thresholds", default=None)
+    p_run.add_argument("--context", default=None)
+    p_run.add_argument("-o", "--output", default="stdout")
+    p_run.add_argument("--results", default=None)
+    p_run.add_argument("--dry-run", action="store_true")
+    p_run.add_argument("--audit", action="store_true")
+
+    # report
+    p_rep = subparsers.add_parser("report", help="Build report from results or load by id")
+    p_rep.add_argument("--results", default=None)
+    p_rep.add_argument("--inventory", default=None)
+    p_rep.add_argument("--thresholds", default=None)
+    p_rep.add_argument("--context", default=None)
+    p_rep.add_argument("--id", default=None, dest="id")
+    p_rep.add_argument("-o", "--output", default="markdown")
+
+    # save
+    p_save = subparsers.add_parser("save", help="Persist report to history")
+    p_save.add_argument("--report", default="-")
+
+    # history
+    p_hist = subparsers.add_parser("history", help="List saved assessments")
+    p_hist.add_argument("--connection", default=None, dest="connection_filter")
+    p_hist.add_argument("-n", "--limit", type=int, default=20)
+
+    # diff
+    p_diff = subparsers.add_parser("diff", help="Compare two reports")
+    p_diff.add_argument("left_id", nargs="?", default=None)
+    p_diff.add_argument("right_id", nargs="?", default=None)
+    p_diff.add_argument("--left", default=None)
+    p_diff.add_argument("--right", default=None)
+
+    # suites
+    subparsers.add_parser("suites", help="List test suites")
+
+    args = parser.parse_args()
+    cfg = _config_from_args(parser, args)
+
+    try:
+        if args.command == "assess":
+            cmd_assess(cfg)
+        elif args.command == "discover":
+            cmd_discover(cfg)
+        elif args.command == "run":
+            cmd_run(cfg)
+        elif args.command == "report":
+            cmd_report(cfg)
+        elif args.command == "save":
+            cmd_save(cfg)
+        elif args.command == "history":
+            cmd_history(cfg)
+        elif args.command == "diff":
+            if getattr(args, "left_id", None):
+                cfg = cfg.with_args(diff_left=args.left_id, diff_right=args.right_id)
+            elif getattr(args, "left", None):
+                cfg = cfg.with_args(diff_left=args.left, diff_right=args.right)
+            cmd_diff(cfg)
+        elif args.command == "suites":
+            cmd_suites(cfg)
+    except UsageError as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(2)
+    except (AssessmentRuntimeError, ValueError, FileNotFoundError, json.JSONDecodeError) as e:
+        print(str(e), file=sys.stderr)
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

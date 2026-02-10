@@ -1,6 +1,6 @@
 # CLI specification
 
-This document specifies the command-line interface for the AI-Ready Data assessment tool. The CLI is the single entry point for both humans and coding agents: it runs assessments, produces reports, and persists history. It is read-only with respect to the user's data sources. Design rationale for composability is in [docs/log/design-cli-composability.md](../log/design-cli-composability.md).
+This document specifies the command-line interface for the AI-Ready Data assessment tool. The CLI is the single entry point for both humans and coding agents: it runs assessments, produces reports, and persists history. It is read-only with respect to the user's data sources. Design rationale for composability is in [docs/log/design-cli-composability.md](../log/design-cli-composability.md). **Components and architecture** (internal structure, package layout) are in [docs/log/design-cli-architecture.md](../log/design-cli-architecture.md).
 
 ---
 
@@ -105,7 +105,7 @@ Pipeline: **connection + context** → discover → **inventory** → run (gener
 
 **Output:** Results JSON to stdout or file. Shape: list of test results (factor, requirement, target, pass/fail per workload, measured value, thresholds).
 
-**Arguments (summary):** `--connection`, `--inventory` (path or `-` for stdin), `--suite`, `--thresholds`, `--context`, `--output`.
+**Arguments (summary):** `--connection`, `--inventory` (path or `-` for stdin), `--suite`, `--thresholds`, `--context`, `--output`, `--audit` (when audit is enabled, queries from this run are logged to the same SQLite DB).
 
 ### 4.4 report
 
@@ -123,7 +123,7 @@ Pipeline: **connection + context** → discover → **inventory** → run (gener
 
 **Input:** Report (file or stdin).
 
-**Output:** Assessment id to stdout.
+**Output:** Assessment id to stdout. The id is a stable, opaque identifier (e.g. UUID) for use with `report --id` and `diff`.
 
 **Arguments (summary):** `--report` (path or `-` for stdin), or report on stdin.
 
@@ -155,7 +155,7 @@ Pipeline: **connection + context** → discover → **inventory** → run (gener
 
 **Configuration:**
 
-- **Connection:** Connection string via `--connection` or `AIRD_CONNECTION_STRING`. Format is platform-specific (e.g. `snowflake://user:pass@account/db/schema`, `duckdb://path/to/file`).
+- **Connection:** Connection string via `--connection` or `AIRD_CONNECTION_STRING`. Format is platform-specific; see the platform support doc (e.g. connection string formats per platform) in the repo. Example forms: `snowflake://…`, `duckdb://path/to/file`.
 - **Context:** Optional YAML file (scope, exclusions, target level, nullable-by-design, PII overrides, freshness SLAs). Via `--context` or `AIRD_CONTEXT`.
 - **Thresholds:** Optional JSON file (per-requirement L1/L2/L3 thresholds). Via `--thresholds` or `AIRD_THRESHOLDS`. Default: built-in thresholds.
 - **Output default:** Via `AIRD_OUTPUT` (e.g. markdown, stdout).
@@ -169,8 +169,8 @@ Pipeline: **connection + context** → discover → **inventory** → run (gener
 
 **Audit log (opt-in):** When enabled via `--audit` or `AIRD_AUDIT=1`, the same SQLite database maintains a full audit log:
   - **Queries:** Every query executed during a run (e.g. per test: query text, target, factor/requirement, assessment_id, timestamp). No redaction or size limit; full query text is stored.
-  - **Conversation:** All conversation with the user (e.g. interview questions emitted, user answers, phase, assessment_id or session id, timestamp). Full content is stored.
-  Retention and size are not limited for now; everything is kept. The feature is off by default so users must opt in.
+  - **Conversation:** All conversation with the user (e.g. interview questions emitted, user answers, phase, assessment_id or session id, timestamp). Full content is stored. Conversation is recorded when interactive phases run (e.g. `--interactive` on assess).
+  Audit applies to any command that executes queries (assess; run when used in a composed flow). Composable commands that execute queries support `--audit` so that a composed pipeline can enable audit on `run`. Retention and size are not limited for now; everything is kept. The feature is off by default so users must opt in.
 
 ---
 
@@ -178,7 +178,7 @@ Pipeline: **connection + context** → discover → **inventory** → run (gener
 
 **Output formats:**
 
-- **stdout:** JSON written to stdout (e.g. `--output stdout` for assess/report).
+- **stdout:** JSON written to stdout (e.g. `--output stdout` for assess/report). Machine-readable output (JSON, assessment id from save) is written **only to stdout** so that piping and parsing are safe (e.g. `aird assess -o stdout | jq …`, `aird save … | xargs …`). Errors and log messages go to **stderr**.
 - **markdown:** Human-readable report (default for assess).
 - **json:<path>:** Write JSON report (or inventory, or results) to the given path.
 
@@ -187,7 +187,7 @@ Report and results JSON conform to documented schemas (e.g. report schema, test-
 **Exit codes:**
 
 - `0` — Success.
-- Non-zero — Failure (e.g. connection failed, invalid args, no tables found). Specific codes (e.g. 1 for runtime error, 2 for usage) may be defined in implementation.
+- Non-zero — Failure (e.g. connection failed, invalid args, no tables found). Implementation should define distinct codes (e.g. 1 for runtime error, 2 for usage error) so scripts and agents can branch on failure type.
 
 ---
 
@@ -218,7 +218,7 @@ We diverge:
 ## 9. Implementation notes
 
 - The current implementation may expose only **assess**, **history**, **diff**, and **suites**. The composable commands (discover, run, report, save) and the extended diff (by id or by file) are part of this spec for implementation when needed.
-- **assess** can be implemented as a composition of discover → run → report → save (when not --no-save) → output, or as a single flow; the observable behavior and artifacts are what this spec defines.
+- **assess** can be implemented as a composition of discover → run → report → save (when not --no-save) → output, or as a single flow; the observable behavior and artifacts are what this spec defines. For component boundaries and package layout, see [design-cli-architecture.md](../log/design-cli-architecture.md).
 - Artifact schemas (inventory, results, report) are defined elsewhere (e.g. agent schema docs or test suite spec); this spec references them and the flow between commands.
 
 ---
