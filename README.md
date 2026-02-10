@@ -20,20 +20,34 @@ The format is inspired by Martin Fowler's work on defining technical patterns, t
 
 ## Quick Start
 
+Requires **Python 3.9+**.
+
 ```bash
-# Clone and install
-git clone https://github.com/[org]/ai-ready-data-framework.git
-cd ai-ready-data-framework
+# Clone and enter the repo
+git clone https://github.com/ai-ready-data/ai-ready-data-agent.git
+cd ai-ready-data-agent
+
+# Install the package (DuckDB is included)
 pip install -e .
 
-# Install the driver for your database (DuckDB is included)
-pip install duckdb   # DuckDB — included by default; also used for local testing
-# pip install snowflake-connector-python   # Snowflake: pip install -e ".[snowflake]"
+# Optional: Snowflake — pip install -e ".[snowflake]"
 
 # Run the assessment
-aird assess --connection "duckdb://:memory:"
+aird assess -c "duckdb://:memory:"
+# Or with a file: aird assess -c "duckdb://path/to/file.duckdb" -o markdown
 # Or with env: export AIRD_CONNECTION_STRING="duckdb://path/to/file.duckdb" && aird assess
 ```
+
+**Full E2E with sample data** (clone → install → create sample DB → assess):
+
+```bash
+git clone https://github.com/ai-ready-data/ai-ready-data-agent.git && cd ai-ready-data-agent
+pip install -e .
+python scripts/create_sample_duckdb.py
+aird assess -c "duckdb://sample.duckdb" -o markdown
+```
+
+Step-by-step checklist: [docs/E2E-from-GitHub.md](docs/E2E-from-GitHub.md).
 
 Built-in support for **DuckDB** (ANSI SQL baseline). Additional platforms (e.g. Snowflake) can be added via the platform registry — see [docs/specs](docs/specs/) and [docs/log](docs/log/).
 
