@@ -4,7 +4,7 @@ Shared reference for supported database platforms. Used by [connect/SKILL.md](..
 
 ## Built-in Platforms
 
-The agent ships with built-in support for **DuckDB**. Snowflake is available as an optional extra.
+The agent ships with built-in support for **DuckDB** and **SQLite**. Snowflake is available as an optional extra.
 
 ---
 
@@ -31,6 +31,33 @@ duckdb://:memory:
 ```
 duckdb:///Users/me/data/sample.duckdb
 duckdb://:memory:
+```
+
+---
+
+## SQLite
+
+**Connection format:**
+```
+sqlite:///path/to/file.db
+sqlite:///:memory:
+```
+
+**Parameters:**
+| Parameter | Required | Default | Notes |
+|-----------|----------|---------|-------|
+| path | Yes | :memory: | Path to .db/.sqlite file, or :memory: |
+
+**Driver:** Python standard library (`sqlite3`). No extra install.
+
+**Read-only enforcement:** Application-level SQL validation (only SELECT, DESCRIBE, SHOW, EXPLAIN, WITH). Discovery uses `sqlite_master` and `PRAGMA table_info` (metadata only).
+
+**Suite:** `common_sqlite` (Clean factor: null_rate, duplicate_rate, table_discovery; SQLite-compatible SQL).
+
+**Example:**
+```
+sqlite:///./sample.sqlite
+sqlite:///:memory:
 ```
 
 ---

@@ -6,6 +6,42 @@ from agent.platform import get_platform
 from agent.platform.executor import execute_readonly
 
 
+def _discover_sqlite(conn: Any) -> dict:
+    """SQLite: use sqlite_master and pragma table_info; schema is 'main' for default DB."""
+    tables_rows = execute_readonly(
+        conn,
+        "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
+    )
+    schema_name = "main"
+    schemas_seen: set[str] = set()
+    tables_list: list[dict] = []
+    for row in tables_rows:
+        table_name = row[0] if isinstance(row, (tuple, list)) else row["name"]
+        full_name = f"{schema_name}.{table_name}"
+        schemas_seen.add(schema_name)
+        tables_list.append({"schema": schema_name, "table": table_name, "full_name": full_name})
+
+    columns_list: list[dict] = []
+    for t in tables_list:
+        # pragma table_info returns (cid, name, type, notnull, dflt_value, pk)
+        rows = conn.execute(f'PRAGMA table_info("{t["table"]}")').fetchall()
+        for r in rows:
+            col_name = r[1]
+            col_type = r[2] if len(r) > 2 else ""
+            columns_list.append({
+                "schema": t["schema"],
+                "table": t["table"],
+                "column": col_name,
+                "data_type": col_type,
+            })
+
+    return {
+        "schemas": sorted(schemas_seen),
+        "tables": tables_list,
+        "columns": columns_list,
+    }
+
+
 def discover(
     connection_string: str,
     *,
@@ -14,7 +50,17 @@ def discover(
     context: Optional[Dict] = None,
 ) -> dict:
     """Produce inventory (schemas, tables, columns) from connection. Applies schema/table filters."""
-    _, conn, _ = get_platform(connection_string)
+    name, conn, _ = get_platform(connection_string)
+    if name == "sqlite":
+        raw = _discover_sqlite(conn)
+        # Apply filters
+        if schemas or tables:
+            tables_list = [t for t in raw["tables"] if (not schemas or t["schema"] in schemas) and (not tables or t["full_name"] in tables)]
+            columns_list = [c for c in raw["columns"] if any(t["schema"] == c["schema"] and t["table"] == c["table"] for t in tables_list)]
+            schemas_seen = {t["schema"] for t in tables_list}
+            return {"schemas": sorted(schemas_seen), "tables": tables_list, "columns": columns_list}
+        return raw
+
     try:
         # Platform-agnostic: use information_schema if available (DuckDB, Snowflake, etc.)
         tables_rows = execute_readonly(

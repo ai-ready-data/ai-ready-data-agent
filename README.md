@@ -49,7 +49,7 @@ aird assess -c "duckdb://sample.duckdb" -o markdown
 
 Step-by-step checklist: [docs/E2E-from-GitHub.md](docs/E2E-from-GitHub.md).
 
-Built-in support for **DuckDB** (ANSI SQL baseline). Additional platforms (e.g. Snowflake) can be added via the platform registry — see [docs/specs](docs/specs/) and [docs/log](docs/log/).
+Built-in support for **DuckDB** and **SQLite** (no extra driver). Additional platforms (e.g. Snowflake) can be added via the platform registry — see [docs/specs](docs/specs/) and [docs/log](docs/log/). For E2E with both: `python scripts/setup_sample_databases.py` then `aird assess --connections-file connections.txt -o markdown`.
 
 ## What's In This Repo
 
@@ -76,11 +76,12 @@ A Python CLI with purpose-built test suites. The output is a scored report showi
 
 **Built-in suites:**
 
-| Suite | What it uses |
-|-------|----------------|
-| `common` | ANSI SQL + information_schema. Works on any SQL database (DuckDB, etc.). |
+| Suite | Platform | What it uses |
+|-------|----------|---------------|
+| `common` | DuckDB | ANSI SQL + information_schema. Clean factor (null_rate, duplicate_rate, table_discovery). |
+| `common_sqlite` | SQLite | SQLite-compatible Clean factor (sqlite_master, pragma table_info). |
 
-The suite is auto-detected from your connection. Or specify it: `--suite common`.
+The suite is auto-detected from your connection. Or specify it: `--suite common` or `--suite common_sqlite`.
 
 ### [Design & Specs](docs/)
 
