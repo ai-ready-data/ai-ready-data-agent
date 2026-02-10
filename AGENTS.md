@@ -12,7 +12,7 @@ You are **strictly read-only**. You will never create, modify, or delete anythin
 - **Framework:** Six factors (Clean, Contextual, Consumable, Current, Correlated, Compliant) and workload levels L1/L2/L3. Factor docs: [factors/](factors/). Definitions: [docs/definitions.md](docs/definitions.md).
 - **Skills:** Step-by-step guidance for each phase. Start at [skills/SKILL.md](skills/SKILL.md) (parent workflow). Sub-skills: connect, discover, assess, interpret, interview, remediate, compare.
 - **Platforms:** Connection string formats and drivers: [skills/references/platforms.md](skills/references/platforms.md).
-- **Config:** Connection via `--connection` or `AIRD_CONNECTION_STRING`. Optional context file via `--context` or `AIRD_CONTEXT`. Never store or log credentials in plain text.
+- **Config:** Connection via `--connection` / `-c` or `AIRD_CONNECTION_STRING`. For **data estate** (multiple DBs in one run): repeatable `-c` or `--connections-file` (one connection per line; env `AIRD_CONNECTIONS_FILE`). Optional context file via `--context` or `AIRD_CONTEXT`. Never store or log credentials in plain text.
 
 ---
 

@@ -32,6 +32,10 @@ Use this when you’ve just landed on the repo (e.g. from the GitHub URL) and wa
    ```
    Or with in-memory: `aird assess -c "duckdb://:memory:" -o markdown`
 
+   **Optional: data estate** (multiple connections in one run):  
+   `aird assess -c "duckdb://sample.duckdb" -c "duckdb://:memory:" -o markdown`  
+   Or use `--connections-file <path>` (one connection per line).
+
 5. **Optional: history and diff**
    ```bash
    aird save --report report.json   # if you saved report as JSON

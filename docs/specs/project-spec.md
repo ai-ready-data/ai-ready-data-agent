@@ -40,10 +40,10 @@ High-level project specification for the AI-Ready Data Agent. This document defi
 **Outcomes:** The system produces concrete outputs:
 
 - **Test results** in JSON (per-run results, factor/requirement/target, pass/fail per workload L1/L2/L3)
-- **Report** in Markdown (human-readable summary, scores, failures)
+- **Report** in Markdown (human-readable summary, scores, failures); supports **single-connection** (one database) and **estate** (multiple connections in one run, with per-connection sections and aggregate summary)
 - **Scores by factor and workload** (L1/L2/L3 readiness per factor)
 - **Remediation suggestions** (actionable fixes for failures; user reviews and executes — the agent never runs remediation)
-- **History and diffing** via a SQLite interface (stored assessments, compare runs)
+- **History and diffing** via a SQLite interface (stored assessments, compare runs; one assessment id per run whether single or estate)
 - **Optional audit log** (behind a flag): when enabled, the same SQLite DB stores a full audit of all queries run and all conversation with the user; no retention or size limit for now
 
 ---
@@ -94,7 +94,7 @@ flowchart TB
 
 **What exists:**
 
-- **CLI:** A Python CLI exposes commands such as `assess` (run a full assessment), `history` (list past runs), and `diff` (compare two runs). The assess flow is: connect to the data source → discover schemas/tables/columns → generate tests from the suite → execute tests (read-only) → score results against L1/L2/L3 thresholds → produce report → save to local history. Connection is via a connection string or env; the CLI enforces read-only (e.g. SQL limited to SELECT/SHOW/DESCRIBE/EXPLAIN). A platform registry detects the backend (e.g. Snowflake, DuckDB) and selects the appropriate test suite.
+- **CLI:** A Python CLI exposes commands such as `assess` (run a full assessment), `history` (list past runs), and `diff` (compare two runs). The assess flow is: connect to the data source(s) → discover schemas/tables/columns → generate tests from the suite → execute tests (read-only) → score results against L1/L2/L3 thresholds → produce report → save to local history. The CLI supports **single-database** assessment (one connection) and **data-estate** assessment (multiple connections in one run: repeatable `-c` or `--connections-file`), producing one report per run with per-connection sections and an optional aggregate summary. Connection is via connection string(s) or env; the CLI enforces read-only (e.g. SQL limited to SELECT/SHOW/DESCRIBE/EXPLAIN). A platform registry detects the backend (e.g. Snowflake, DuckDB) and selects the appropriate test suite.
 - **AGENTS.md:** A playbook for coding agents: how to interview the user (pre-connect, post-discover, post-results), how to connect, discover, assess, interpret results, triage failures, and generate remediation. It defines stopping points and where to read framework vs remediation content.
 - **Skills:** A parent workflow (e.g. assess-data) and sub-skills (connect, discover, assess, interpret, interview, remediate, compare), each with a `SKILL.md` that describes when to load it, prerequisites, steps, and forbidden actions. Skills depend on the core agent package and reference a single platforms/support doc (e.g. connection string formats, drivers). The pattern: skills are first-class (one SKILL.md per skill), configuration is environment- or connection-string based, and there is a clear separation between the core CLI (that runs tests and produces reports) and the skills (that guide the agent through the workflow). We do not create or clean up resources in the user’s data platform; we only assess and report, so there is no resource manifest.
 

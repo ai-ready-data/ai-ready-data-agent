@@ -1,0 +1,3 @@
+# Test connections file
+duckdb://sample.duckdb
+duckdb://:memory:

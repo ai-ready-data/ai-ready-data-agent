@@ -70,7 +70,7 @@ Canonical definitions: [docs/definitions.md](docs/definitions.md). Factor docume
 
 ### [The Assessment Agent](agent/)
 
-A Python CLI with purpose-built test suites. The output is a scored report showing which workload levels your data is ready for.
+A Python CLI with purpose-built test suites. The output is a scored report showing which workload levels your data is ready for. You can assess **one database** or a **data estate** (multiple connections in one run); estate mode produces one report with per-connection sections and an aggregate summary.
 
 **The agent is strictly read-only.** It never creates, modifies, or deletes anything in your data source. For SQL platforms, only `SELECT`, `DESCRIBE`, `SHOW`, `EXPLAIN`, and `WITH` are allowed; validation is enforced before execution.
 
@@ -89,11 +89,11 @@ Specifications, design rationale, and architecture:
 - [Project spec](docs/specs/project-spec.md) — purpose, layers, outcomes
 - [CLI spec](docs/specs/cli-spec.md) — commands, artifacts, config
 - [Factor spec](docs/specs/factor-spec.md) — factor document shape, requirement keys
-- [Design log](docs/log/) — composability, architecture, analysis
+- [Design log](docs/log/) — composability, architecture, multi-connection/estate, analysis
 
 ## How It Works
 
-1. **Connect** — Point the agent at your database (connection string or `AIRD_CONNECTION_STRING`).
+1. **Connect** — Point the agent at your database (connection string or `AIRD_CONNECTION_STRING`). For a **data estate**, pass multiple connections (repeatable `-c` or `--connections-file`).
 2. **Discover** — The agent enumerates schemas, tables, and columns (or use `aird discover` alone).
 3. **Generate** — Tests are generated from the selected suite and inventory.
 4. **Execute** — Queries run against your data source (read-only), producing measurements.
@@ -102,8 +102,12 @@ Specifications, design rationale, and architecture:
 7. **Save** — Results are stored locally in SQLite (`~/.aird/assessments.db` by default, or `AIRD_DB_PATH`) for history and diffing.
 
 ```bash
-# One-shot full pipeline
+# One-shot full pipeline (single database)
 aird assess -c "duckdb://:memory:" -o markdown
+
+# Data estate: multiple connections in one run (one report, per-connection + aggregate)
+aird assess -c "duckdb://db1.duckdb" -c "duckdb://db2.duckdb" -o markdown
+# Or: aird assess --connections-file connections.txt -o markdown
 
 # Try the Clean factor suite on a real DB (create sample, then assess)
 python scripts/create_sample_duckdb.py && aird assess -c "duckdb://sample.duckdb" -o markdown

@@ -28,7 +28,8 @@ class Config:
     """Resolved configuration from env + CLI args."""
 
     # Connection and scope
-    connection: Optional[str] = None
+    connection: Optional[str] = None  # single connection (discover, run); also first of connections when in assess
+    connections: list[str] = field(default_factory=list)  # for assess: one or more connections (estate)
     schemas: list[str] = field(default_factory=list)
     tables: list[str] = field(default_factory=list)
     context_path: Optional[Path] = None
@@ -63,6 +64,14 @@ class Config:
     diff_left: Optional[str] = None  # id or path
     diff_right: Optional[str] = None
 
+    def get_connections(self) -> list[str]:
+        """List of connections to assess. For single-connection, returns [connection]; for estate, returns connections."""
+        if self.connections:
+            return self.connections
+        if self.connection:
+            return [self.connection]
+        return []
+
     @classmethod
     def from_env(cls) -> "Config":
         """Load defaults from environment only."""
@@ -80,6 +89,7 @@ class Config:
         self,
         *,
         connection: Optional[str] = None,
+        connections: Optional[list[str]] = None,
         schemas: Optional[list[str]] = None,
         tables: Optional[list[str]] = None,
         context_path: Optional[Path] = None,
@@ -105,6 +115,7 @@ class Config:
         """Return a new config with overrides from CLI args."""
         return Config(
             connection=connection if connection is not None else self.connection,
+            connections=connections if connections is not None else self.connections,
             schemas=schemas if schemas is not None else self.schemas,
             tables=tables if tables is not None else self.tables,
             context_path=context_path if context_path is not None else self.context_path,

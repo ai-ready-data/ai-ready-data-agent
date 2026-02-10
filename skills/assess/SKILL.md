@@ -26,7 +26,7 @@ Run the assessment CLI to discover (if needed), generate and execute tests, scor
 
 ## Workflow
 
-### Option A: One-shot (typical)
+### Option A: One-shot (single database)
 
 Use the connection string from the connect step, or ensure `AIRD_CONNECTION_STRING` is set. Run the full pipeline in one command:
 
@@ -39,6 +39,22 @@ Or output JSON for parsing:
 ```bash
 aird assess -c "<connection>" -o json:report.json
 ```
+
+### Option A2: Data estate (multiple connections)
+
+To assess multiple databases in one run, pass multiple connections. The report will have per-connection sections and an aggregate summary:
+
+```bash
+aird assess -c "duckdb://db1.duckdb" -c "duckdb://db2.duckdb" -o markdown
+```
+
+Or use a file (one connection string per line; `#` and blank lines ignored):
+
+```bash
+aird assess --connections-file connections.txt -o markdown
+```
+
+Env: `AIRD_CONNECTIONS_FILE` can point to the file path.
 
 If the command fails, report the error to the user and do not proceed; suggest checking connection string, driver, or network.
 
