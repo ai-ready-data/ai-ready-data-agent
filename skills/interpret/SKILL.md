@@ -22,6 +22,8 @@ Read the assessment report and present results in a clear, conversational way. W
 ## Prerequisites
 
 - Report available (JSON or markdown). Get it from: (1) the report file or path from the last assess step, (2) or if the user has a saved assessment, load by id: `aird report --id <id> -o markdown` or `-o json:path/to/report.json`.
+- Report conforms to the schema defined in [docs/specs/report-spec.md](../../docs/specs/report-spec.md). Key fields: `summary`, `factor_summary`, `results` (with `threshold` and `direction`), `not_assessed`, `target_workload`.
+- For report **presentation** (showing results without triage), see [report/SKILL.md](../report/SKILL.md). This interpret skill focuses on **triage** — helping the user decide what to fix.
 
 ## Workflow
 
@@ -33,12 +35,12 @@ Summarize: total tests, pass counts or percentages at L1/L2/L3 from the report s
 
 ### Step 2: Factor-by-Factor Walkthrough
 
-For each factor that has failures (or low scores) at the user's target level, briefly explain what the factor means using the framework:
+Use the `factor_summary` array in the report to identify which factors have failures at the user's target level. For each factor that has failures (or low scores), briefly explain what the factor means using the framework:
 
 - **Clean:** [factors/factor-00-clean.md](../../factors/factor-00-clean.md)
 - Contextual, Consumable, Current, Correlated, Compliant: factor docs in [factors/](../../factors/) (add as they exist)
 
-Then list the failing tests for that factor (e.g. test_id, requirement, measured value vs threshold). Don't dump the full report; summarize and highlight.
+Then list the failing tests for that factor. Each result in the report includes `measured_value`, `threshold` (L1/L2/L3 values), and `direction` (lte or gte) — use these to explain why the test failed (e.g. "null_rate measured 0.15, threshold is 0.05 for L2, should be at most"). Don't dump the full report; summarize and highlight.
 
 ### Step 3: Failure Triage (Phase 3 Interview)
 

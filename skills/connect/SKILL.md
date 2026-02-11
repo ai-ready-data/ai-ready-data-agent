@@ -49,9 +49,12 @@ If the user already gave a connection string, skip to Step 3.
 
 - **DuckDB:** `duckdb:///path/to/file.duckdb` or `duckdb://:memory:`. Driver is included.
 - **SQLite:** `sqlite:///path/to/file.db`. Driver is in the standard library.
-- **Snowflake:** `snowflake://user:pass@account/db/schema?warehouse=WH`. Driver: `pip install -e ".[snowflake]"`.
+- **Snowflake** (three options — pick the one that fits):
+  1. **Named connection (Cortex Code CLI / Snowflake CLI):** If the user already has `~/.snowflake/connections.toml` (from Cortex Code CLI or Snowflake CLI), use `snowflake://connection:NAME` where NAME is the TOML section (e.g. `snowflake://connection:snowhouse`). No password needed — reuses the existing SSO session. This is the recommended option for Cortex Code CLI users.
+  2. **URL with SSO:** `snowflake://user@account/db/schema?authenticator=externalbrowser&warehouse=WH`. Opens browser for SSO, no password stored.
+  3. **URL with password:** `snowflake://user:pass@account/db/schema?warehouse=WH`. Driver: `pip install -e ".[snowflake]"`.
 
-Help the user build the string or set an env var. **For secrets, prefer an env var** (e.g. `SNOWFLAKE_URI`) so we can put `env:SNOWFLAKE_URI` in the manifest and keep the file safe.
+Help the user build the string or set an env var. **For secrets, prefer an env var** (e.g. `SNOWFLAKE_URI`) so we can put `env:SNOWFLAKE_URI` in the manifest and keep the file safe. For named connections, no secrets are needed in the connection string since `connections.toml` handles auth.
 
 **STOP:** Confirm the connection string (or env) is set; do not log the full string with secrets.
 

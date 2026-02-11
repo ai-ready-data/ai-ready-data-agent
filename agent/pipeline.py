@@ -98,11 +98,13 @@ def _run_assess_single(
         answers = _load_survey_answers(config.survey_answers_path)
         question_results = run_survey(questions=questions, answers=answers)
 
+    target_workload = (context or {}).get("target_level") or None
     report = build_report(
         results,
         inventory=inv,
         connection_fingerprint=_fingerprint(connection),
         question_results=question_results,
+        target_workload=target_workload,
     )
     if context:
         report["user_context"] = context
@@ -189,13 +191,15 @@ def _run_assess_estate(
         platforms.append({
             "connection_fingerprint": fp,
             "summary": report["summary"],
+            "factor_summary": report["factor_summary"],
             "results": report["results"],
             "inventory": inv,
         })
     if config.dry_run:
         total = sum(p["test_count"] for p in dry_run_previews)
         return {"dry_run": True, "preview": dry_run_previews, "test_count": total}
-    estate_report = build_estate_report(platforms)
+    target_workload = (context or {}).get("target_level") or None
+    estate_report = build_estate_report(platforms, target_workload=target_workload)
     if context:
         estate_report["user_context"] = context
     if not config.no_save:

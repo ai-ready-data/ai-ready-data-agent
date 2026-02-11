@@ -55,7 +55,7 @@ Artifacts are the inputs and outputs that allow composition. Each has a stable s
 |----------|-------------|-------------|-------------|
 | **Inventory** | discover | run, report (for not_assessed) | Schemas, tables, columns; scope and context-aware filtering. |
 | **Results** | run (execute) | report | Raw test results: per test, pass/fail per workload (L1/L2/L3), measured value, thresholds. |
-| **Report** | report, assess (score step) | save, output, diff | Full report: summary, factor scores, tests, environment, user_context. Conforms to report schema. **Single-connection report:** one connection_fingerprint, one summary, one results list. **Estate report:** when assess is run with multiple connections, report includes per-connection sections (e.g. `platforms`: list of connection_fingerprint, summary, results, inventory) and an optional aggregate summary. |
+| **Report** | report, assess (score step) | save, output, diff | Full report: summary, factor_summary, results (with embedded thresholds and direction), not_assessed, target_workload, environment, user_context. Conforms to [report-spec.md](report-spec.md). **Single-connection report:** one connection_fingerprint, one summary, one results list. **Estate report:** when assess is run with multiple connections, report includes per-connection sections (e.g. `platforms`: list of connection_fingerprint, summary, factor_summary, results, inventory) and an aggregate summary. |
 
 Pipeline: **connection(s) + context** → [per connection: discover → **inventory** → run (generate + execute) → **results**] → report (score + render, merge if estate) → **report** → (optional) save, output. Single-connection: one discover → run → report. Estate: N connections → N discover+run → one merged report.
 
@@ -185,7 +185,7 @@ Pipeline: **connection(s) + context** → [per connection: discover → **invent
 - **markdown:** Human-readable report (default for assess).
 - **json:<path>:** Write JSON report (or inventory, or results) to the given path.
 
-Report and results JSON conform to documented schemas (e.g. report schema, test-result schema) so that agents and other tools can parse them.
+Report and results JSON conform to the documented schema in [report-spec.md](report-spec.md) so that agents and other tools can parse them.
 
 **Exit codes:**
 

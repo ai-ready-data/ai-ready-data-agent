@@ -48,6 +48,7 @@ def test_e2e_assess_report_structure_and_failures():
 
         report = run_assess(config)
 
+        # Core fields
         assert "summary" in report
         assert "results" in report
         assert "connection_fingerprint" in report
@@ -58,13 +59,37 @@ def test_e2e_assess_report_structure_and_failures():
         assert len(results) >= 1
         failures = [r for r in results if r.get("l1_pass") is False]
         assert len(failures) >= 1, "Expected at least one L1 failure (null_rate or duplicate_rate)"
+
+        # New report-spec fields
+        assert "factor_summary" in report
+        fs = report["factor_summary"]
+        assert isinstance(fs, list)
+        assert len(fs) >= 1, "Should have at least one factor summary (clean)"
+        for entry in fs:
+            assert "factor" in entry
+            assert "total_tests" in entry
+            assert "l1_pass" in entry
+            assert "l1_pct" in entry
+
+        assert "not_assessed" in report
+        assert isinstance(report["not_assessed"], list)
+
+        assert "target_workload" in report  # should be None when not set
+
+        # Per-result threshold and direction
+        for r in results:
+            assert "threshold" in r, f"Result {r.get('test_id')} missing threshold"
+            assert "direction" in r, f"Result {r.get('test_id')} missing direction"
+            th = r["threshold"]
+            assert "l1" in th and "l2" in th and "l3" in th
+            assert r["direction"] in ("lte", "gte")
     finally:
         if tmpdir.exists():
             shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 def test_e2e_assess_with_threshold_override():
-    """Run assess with custom thresholds JSON; stricter null_rate should produce more failures."""
+    """Run assess with custom thresholds JSON; stricter null_rate should produce more failures and embedded threshold reflects override."""
     from agent.config import Config
     from agent.pipeline import run_assess
 
@@ -89,13 +114,18 @@ def test_e2e_assess_with_threshold_override():
             if r.get("requirement") == "null_rate" and r.get("l1_pass") is False
         ]
         assert len(null_failures) >= 1
+
+        # Verify embedded threshold reflects the override
+        null_results = [r for r in report["results"] if r.get("requirement") == "null_rate"]
+        for r in null_results:
+            assert r["threshold"]["l1"] == 0.01, "Custom threshold should be embedded in result"
     finally:
         if tmpdir.exists():
             shutil.rmtree(tmpdir, ignore_errors=True)
 
 
 def test_e2e_assess_with_context_scope():
-    """Run assess with context YAML restricting schemas; report should include user_context."""
+    """Run assess with context YAML restricting schemas and setting target_level; report should include user_context and target_workload."""
     import yaml
     from agent.config import Config
     from agent.pipeline import run_assess
@@ -103,7 +133,7 @@ def test_e2e_assess_with_context_scope():
     tmpdir = Path(tempfile.mkdtemp(prefix="aird_e2e_"))
     try:
         connection = _make_duckdb(tmpdir)
-        (tmpdir / "context.yaml").write_text(yaml.dump({"schemas": ["main"]}))
+        (tmpdir / "context.yaml").write_text(yaml.dump({"schemas": ["main"], "target_level": "l2"}))
         config = Config(
             connection=connection,
             no_save=True,
@@ -116,6 +146,8 @@ def test_e2e_assess_with_context_scope():
         assert "user_context" in report
         assert report["user_context"].get("schemas") == ["main"]
         assert report["summary"]["total_tests"] >= 1
+        assert report["target_workload"] == "l2", "target_workload should come from context target_level"
+        assert "factor_summary" in report
     finally:
         if tmpdir.exists():
             shutil.rmtree(tmpdir, ignore_errors=True)

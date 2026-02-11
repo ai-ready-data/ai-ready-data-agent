@@ -6,7 +6,7 @@ from agent.platform import get_platform
 from agent.platform.executor import execute_readonly
 from agent.platform.registry import get_suite
 from agent.audit import AuditSink
-from agent.thresholds import passes
+from agent.thresholds import get_direction, get_threshold, passes
 
 
 def _quote_ident(s: str) -> str:
@@ -137,6 +137,12 @@ def run_tests(
                 "requirement": req,
                 "target_type": t.get("target_type"),
                 "measured_value": measured,
+                "threshold": {
+                    "l1": get_threshold(req, "l1", thresholds),
+                    "l2": get_threshold(req, "l2", thresholds),
+                    "l3": get_threshold(req, "l3", thresholds),
+                },
+                "direction": get_direction(req),
                 "l1_pass": passes(req, mv, "l1", thresholds),
                 "l2_pass": passes(req, mv, "l2", thresholds),
                 "l3_pass": passes(req, mv, "l3", thresholds),
@@ -148,6 +154,12 @@ def run_tests(
                 "requirement": req,
                 "target_type": t.get("target_type"),
                 "measured_value": None,
+                "threshold": {
+                    "l1": get_threshold(req, "l1", thresholds),
+                    "l2": get_threshold(req, "l2", thresholds),
+                    "l3": get_threshold(req, "l3", thresholds),
+                },
+                "direction": get_direction(req),
                 "l1_pass": False,
                 "l2_pass": False,
                 "l3_pass": False,
