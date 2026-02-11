@@ -18,12 +18,25 @@ def register_platform(
     _platforms[scheme.lower()] = (adapter_name, create_connection_func, default_suite)
 
 
-def get_platform(connection_string: str) -> tuple[str, Any, str]:
-    """Resolve connection string to (adapter_name, connection_handle, default_suite). Raises if unknown scheme."""
+def _scheme_and_suite(connection_string: str) -> tuple[str, str]:
+    """Parse connection string to (scheme, default_suite). Does not create a connection."""
     scheme = connection_string.split("://", 1)[0].lower() if "://" in connection_string else "duckdb"
     if scheme not in _platforms:
         raise ValueError(f"Unknown connection scheme: {scheme}. Supported: {list(_platforms.keys())}")
-    name, factory, default_suite = _platforms[scheme]
+    _, _, default_suite = _platforms[scheme]
+    return scheme, default_suite
+
+
+def get_default_suite(connection_string: str) -> str:
+    """Return the default suite name for the connection's scheme. Does not open a connection."""
+    _, default_suite = _scheme_and_suite(connection_string)
+    return default_suite
+
+
+def get_platform(connection_string: str) -> tuple[str, Any, str]:
+    """Resolve connection string to (adapter_name, connection_handle, default_suite). Raises if unknown scheme."""
+    scheme, default_suite = _scheme_and_suite(connection_string)
+    name, factory, _ = _platforms[scheme]
     conn = factory(connection_string)
     return name, conn, default_suite
 

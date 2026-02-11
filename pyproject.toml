@@ -16,6 +16,7 @@ dependencies = [
 
 [project.optional-dependencies]
 snowflake = ["snowflake-connector-python>=3.0"]
+dev = ["pytest>=7.0"]
 
 [project.scripts]
 aird = "agent.cli:main"

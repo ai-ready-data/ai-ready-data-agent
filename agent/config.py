@@ -44,6 +44,8 @@ class Config:
     dry_run: bool = False
     interactive: bool = False
     audit: bool = False
+    survey: bool = False
+    survey_answers_path: Optional[Path] = None
 
     # Paths and logging
     db_path: Path = field(default_factory=default_db_path)
@@ -113,6 +115,8 @@ class Config:
         dry_run: Optional[bool] = None,
         interactive: Optional[bool] = None,
         audit: Optional[bool] = None,
+        survey: Optional[bool] = None,
+        survey_answers_path: Optional[Path] = None,
         db_path: Optional[Path] = None,
         log_level: Optional[str] = None,
         inventory_path: Optional[str] = None,
@@ -140,6 +144,8 @@ class Config:
             dry_run=dry_run if dry_run is not None else self.dry_run,
             interactive=interactive if interactive is not None else self.interactive,
             audit=audit if audit is not None else self.audit,
+            survey=survey if survey is not None else self.survey,
+            survey_answers_path=survey_answers_path if survey_answers_path is not None else self.survey_answers_path,
             db_path=db_path if db_path is not None else self.db_path,
             log_level=log_level if log_level is not None else self.log_level,
             inventory_path=inventory_path if inventory_path is not None else self.inventory_path,

@@ -1,0 +1,25 @@
+# Snowflake suite: questions scoped to the datasets in this assessment.
+# All require human judgment (ownership, process, acceptability); none answerable by query alone.
+- factor: clean
+  requirement: validation_at_ingestion
+  question: "For the tables in this assessment, is there a defined process for handling nulls or invalid values (e.g. at load, in pipelines, or in downstream use)?"
+
+- factor: contextual
+  requirement: column_meaning_documented
+  question: "For the columns in these datasets, where is their business meaning documented (e.g. Snowflake COMMENT, catalog, wiki, or data dictionary)? Who maintains it?"
+
+- factor: consumable
+  requirement: serving_latency_acceptable
+  question: "For these datasets, what is the expected latency of use (e.g. batch nightly vs near real-time)? Is that acceptable for the use cases you care about?"
+
+- factor: current
+  requirement: freshness_sla_defined
+  question: "For the tables in this assessment, what is the expected freshness or refresh cadence? Is that acceptable, and who is responsible if it slips?"
+
+- factor: correlated
+  requirement: lineage_tooling
+  question: "For these tables, where do you track lineage or provenance (e.g. upstream sources, Snowflake streams/tasks, dbt, or a catalog)? Who keeps it up to date?"
+
+- factor: compliant
+  requirement: governance_policy
+  question: "For these datasets, who is responsible for access control and governance? Is there a defined policy or owner you can point to?"

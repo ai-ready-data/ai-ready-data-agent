@@ -1,11 +1,19 @@
 # Context file
 
-Optional YAML file used to pass scope, exclusions, and overrides into the CLI. Via `--context` or `AIRD_CONTEXT`.
+Optional YAML file used to pass scope and overrides into the CLI. Via `--context` or `AIRD_CONTEXT`.
 
-**Purpose:** Scope (schemas/tables to include or exclude), target workload level, and optional overrides (e.g. nullable-by-design columns, PII, freshness SLAs) so the agent and CLI don't re-ask on every run.
+**Purpose:** Scope (schemas/tables to include) and optional overrides so the agent and CLI don't re-ask on every run. When set, discovery uses context **schemas** and **tables** when the manifest target does not specify them; the report includes `user_context` for the interpret step.
 
-**Canonical definition:** [docs/specs/cli-spec.md](../../docs/specs/cli-spec.md) § Configuration — "Optional YAML file (scope, exclusions, target level, nullable-by-design, PII overrides, freshness SLAs)."
+**YAML shape (current):**
+- `schemas`: optional list of schema names (restrict discovery to these).
+- `tables`: optional list of table names (e.g. `schema.table`; restrict discovery to these).
 
-**Persistence:** The CLI may save context per connection under `~/.aird/contexts/` so users don't re-enter on re-run. Path and schema details may be extended in a future spec.
+Example:
+```yaml
+schemas: [main, staging]
+tables: [main.fact_sales]
+```
 
-**Usage:** When the user has confirmed scope or overrides in the interview, you can write a YAML file (or use an existing one) and pass it with `--context <path>` on discover, run, or assess.
+**Canonical definition:** [docs/specs/cli-spec.md](../../docs/specs/cli-spec.md) § Configuration.
+
+**Usage:** When the user has confirmed scope in the interview, write a YAML file and pass it with `--context <path>` on assess (or discover/run in a composed flow).

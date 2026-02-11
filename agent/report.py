@@ -54,8 +54,9 @@ def build_report(
     *,
     inventory: Optional[dict] = None,
     connection_fingerprint: str = "",
+    question_results: Optional[list] = None,
 ) -> dict:
-    """Build full report dict from results. Optionally attach inventory and connection fingerprint."""
+    """Build full report dict from results. Optionally attach inventory, connection fingerprint, and question_results."""
     created = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     results_list = results.get("results", [])
     l1_pass = sum(1 for r in results_list if r.get("l1_pass"))
@@ -71,7 +72,7 @@ def build_report(
         "l2_pct": round(100 * l2_pass / total, 1),
         "l3_pct": round(100 * l3_pass / total, 1),
     }
-    return {
+    out = {
         "created_at": created,
         "connection_fingerprint": connection_fingerprint,
         "summary": summary,
@@ -80,6 +81,9 @@ def build_report(
         "environment": {},
         "user_context": {},
     }
+    if question_results is not None:
+        out["question_results"] = question_results
+    return out
 
 
 def report_to_markdown(report: dict) -> str:
@@ -104,6 +108,18 @@ def report_to_markdown(report: dict) -> str:
     for r in report.get("results", []):
         status = "PASS" if r.get("l1_pass") else "FAIL"
         lines.append(f"- **{r.get('test_id', '?')}** ({r.get('factor')}/{r.get('requirement')}): {status}")
+
+    qr = report.get("question_results")
+    if qr:
+        lines.append("")
+        lines.append("## Question-based (survey)")
+        lines.append("")
+        for r in qr:
+            status = "PASS" if r.get("l1_pass") else "FAIL"
+            lines.append(f"- **{r.get('factor')} / {r.get('requirement')}**: {status}")
+            lines.append(f"  - {r.get('question_text', '')}")
+            lines.append(f"  - Answer: {r.get('answer', '—')}")
+            lines.append("")
     return "\n".join(lines)
 
 

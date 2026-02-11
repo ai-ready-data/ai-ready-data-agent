@@ -1,0 +1,25 @@
+# Question-based requirements: one per factor (SM3 demo).
+# Each entry: factor, requirement (key), question (text). Optional rubric for pass/fail.
+- factor: clean
+  requirement: validation_at_ingestion
+  question: "Is there validation at ingestion (e.g. schema checks, null checks) for this data?"
+
+- factor: contextual
+  requirement: column_meaning_documented
+  question: "Are column meanings or semantics documented (e.g. data dictionary, comments)?"
+
+- factor: consumable
+  requirement: serving_latency_acceptable
+  question: "Is serving latency acceptable for your use case (e.g. real-time vs batch)?"
+
+- factor: current
+  requirement: freshness_sla_defined
+  question: "Is there a defined freshness SLA or refresh cadence for this data?"
+
+- factor: correlated
+  requirement: lineage_tooling
+  question: "Is lineage or provenance tracked (e.g. catalog, streams, dbt)?"
+
+- factor: compliant
+  requirement: governance_policy
+  question: "Is there a governance or access policy for this data?"

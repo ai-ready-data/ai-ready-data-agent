@@ -75,6 +75,8 @@ def _config_from_args(parser: argparse.ArgumentParser, args: argparse.Namespace)
         dry_run=getattr(args, "dry_run", None) or cfg.dry_run,
         interactive=getattr(args, "interactive", None) or cfg.interactive,
         audit=getattr(args, "audit", None) or cfg.audit,
+        survey=getattr(args, "survey", None) or cfg.survey,
+        survey_answers_path=Path(args.survey_answers) if getattr(args, "survey_answers", None) else cfg.survey_answers_path,
         db_path=Path(args.db_path) if getattr(args, "db_path", None) else cfg.db_path,
         log_level=getattr(args, "log_level", None) or cfg.log_level,
         inventory_path=getattr(args, "inventory", None),
@@ -240,6 +242,8 @@ def main() -> None:
     p_assess.add_argument("--dry-run", action="store_true")
     p_assess.add_argument("-i", "--interactive", action="store_true")
     p_assess.add_argument("--audit", action="store_true")
+    p_assess.add_argument("--survey", action="store_true", help="Run question-based survey and include in report")
+    p_assess.add_argument("--survey-answers", default=None, help="Path to YAML of pre-filled answers (for non-interactive demo)")
 
     # discover
     p_disc = subparsers.add_parser("discover", help="Connect and output inventory")

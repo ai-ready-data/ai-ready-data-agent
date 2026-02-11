@@ -76,6 +76,8 @@ Each row is one requirement. A cell with `--` means that requirement does not ap
 - **Remediation:** For each requirement key, there may be a remediation template that explains the requirement, why it matters, and generic fix patterns. The agent uses these to generate concrete suggestions. Not every requirement need have a template; absence can be documented.
 - **Traceability:** Factor doc (requirement key + prose) → test definition (same requirement key) → threshold config (same key) → remediation template (same key). The abstract factor spec does not mandate a single file format for thresholds or remediation; it only requires that the **key** is the stable link.
 
+**Requirement evaluation: measured vs asked.** A requirement key can be evaluated by a **measured test** (query/API + threshold) and/or by an **asked question** (the agent asks the user and records the answer; optionally a rubric gives pass/fail). Question-based requirements use the same factor and key and allow assessing process, governance, and intent. See [design-question-based-requirements.md](../designs/design-question-based-requirements.md).
+
 ---
 
 ## 6. Workloads (use cases) and short names (L1, L2, L3)

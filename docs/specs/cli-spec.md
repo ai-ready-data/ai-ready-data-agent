@@ -159,8 +159,8 @@ Pipeline: **connection(s) + context** → [per connection: discover → **invent
 **Configuration:**
 
 - **Connection(s):** Single connection via `--connection` / `-c` or `AIRD_CONNECTION_STRING`. For **estate** (multi-connection) runs: repeatable `-c` and/or `--connections-file` (path to a YAML/JSON manifest); env `AIRD_CONNECTIONS_FILE` may supply the path. When no `-c` and no `--connections-file` are given, the CLI uses the default **connections manifest** `~/.aird/connections.yaml` if that file exists. Manifest entries may use `env:VAR_NAME`; the CLI expands from the environment. Connection string format is platform-specific; see the platform support doc in the repo. Example forms: `snowflake://…`, `duckdb://path/to/file`.
-- **Context:** Optional YAML file (scope, exclusions, target level, nullable-by-design, PII overrides, freshness SLAs). Via `--context` or `AIRD_CONTEXT`.
-- **Thresholds:** Optional JSON file (per-requirement L1/L2/L3 thresholds). Via `--thresholds` or `AIRD_THRESHOLDS`. Default: built-in thresholds.
+- **Context:** Optional YAML file (scope and overrides). Via `--context` or `AIRD_CONTEXT`. When present, **schemas** and **tables** are applied to discovery (per-target scope overrides context when set). Report includes `user_context` when context is loaded. YAML shape: `schemas: [string]`, `tables: [string]` (optional); future: target_level, exclusions, nullable-by-design, PII, freshness SLAs).
+- **Thresholds:** Optional JSON file (per-requirement L1/L2/L3 thresholds). Via `--thresholds` or `AIRD_THRESHOLDS`. Default: built-in thresholds. JSON shape: `{ "<requirement_key>": { "l1": float, "l2": float, "l3": float }, ... }`; keys are merged over built-in (e.g. `null_rate`, `duplicate_rate`).
 - **Output default:** Via `AIRD_OUTPUT` (e.g. markdown, stdout).
 - **Log level:** Via `AIRD_LOG_LEVEL`.
 

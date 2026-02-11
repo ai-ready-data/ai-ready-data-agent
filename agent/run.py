@@ -94,8 +94,10 @@ def run_tests(
     dry_run: bool = False,
     audit: Optional[AuditSink] = None,
     assessment_id: Optional[str] = None,
+    thresholds: Optional[dict] = None,
 ) -> dict:
-    """Execute suite against inventory; return results artifact. If dry_run, return preview only."""
+    """Execute suite against inventory; return results artifact. If dry_run, return preview only.
+    thresholds: optional merged dict from thresholds.load_thresholds(); when None, built-in defaults are used."""
     _, conn, default_suite = get_platform(connection_string)
     suite = suite_name if suite_name != "auto" else default_suite
     raw_tests = get_suite(suite)
@@ -135,9 +137,9 @@ def run_tests(
                 "requirement": req,
                 "target_type": t.get("target_type"),
                 "measured_value": measured,
-                "l1_pass": passes(req, mv, "l1"),
-                "l2_pass": passes(req, mv, "l2"),
-                "l3_pass": passes(req, mv, "l3"),
+                "l1_pass": passes(req, mv, "l1", thresholds),
+                "l2_pass": passes(req, mv, "l2", thresholds),
+                "l3_pass": passes(req, mv, "l3", thresholds),
             })
         except Exception as e:
             results_list.append({
