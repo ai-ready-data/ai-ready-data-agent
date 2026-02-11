@@ -1,4 +1,4 @@
-# The AI-Ready Data Project
+# The AI-Ready Data Framework
 
 **Six factors that determine whether your data can reliably power AI systems.**
 
