@@ -42,8 +42,11 @@ def get_platform(connection_string: str) -> tuple[str, Any, str]:
 
 
 def register_suite(name: str, tests: list[dict]) -> None:
-    """Register a test suite (list of test defs: factor, requirement, query or query_id, target_type)."""
-    _suites[name] = tests
+    """Register (or extend) a test suite. Multiple factor files can contribute tests to the same suite name."""
+    if name in _suites:
+        _suites[name].extend(tests)
+    else:
+        _suites[name] = list(tests)
 
 
 def get_suite(name: str) -> list[dict]:

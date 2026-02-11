@@ -13,7 +13,8 @@ except ImportError:
     pass
 import agent.suites.clean_duckdb  # noqa: F401 — "common" for DuckDB
 import agent.suites.clean_sqlite  # noqa: F401 — "common_sqlite" for SQLite
-import agent.suites.clean_snowflake  # noqa: F401 — "common_snowflake" for Snowflake
+import agent.suites.clean_snowflake  # noqa: F401 — "common_snowflake" for Snowflake (Clean)
+import agent.suites.contextual_snowflake  # noqa: F401 — appends Contextual tests to "common_snowflake"
 
 __all__ = [
     "get_platform",

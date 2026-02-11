@@ -7,7 +7,7 @@ This directory contains the factor documents for the AI-Ready Data Framework. Ea
 | Index | Factor | Document |
 |-------|--------|----------|
 | 0 | Clean | [factor-00-clean.md](factor-00-clean.md) |
-| 1 | Contextual | *(to be added)* |
+| 1 | Contextual | [factor-01-contextual.md](factor-01-contextual.md) |
 | 2 | Consumable | *(to be added)* |
 | 3 | Current | *(to be added)* |
 | 4 | Correlated | *(to be added)* |

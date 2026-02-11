@@ -23,12 +23,26 @@ Built-in suites: **DuckDB** (`common`), **SQLite** (`common_sqlite`), **Snowflak
 
 ---
 
-## Snowflake: Clean-only (milestone focus)
+## Factor 1: Contextual
 
-| Key | Implemented | Notes |
-|-----|-------------|-------|
-| Clean (all 6) | Yes | `common_snowflake` suite; `agent/suites/clean_snowflake.py`. Snowflake-native SQL (COUNT_IF, TRY_CAST, UPPER for system schema filter). |
-| Question-based (survey) | Optional | Available via `--survey`; suite-level questions in `agent/suites/questions/common_snowflake.yaml`. Not required for the Clean-focused demo. |
+Four requirements across four semantic dimensions. Snowflake suite: `agent/suites/contextual_snowflake.py` (appends to `common_snowflake`). Threshold direction: `gte` (coverage metrics — higher is better).
+
+| Key | Dimension | Implemented | Scope / notes |
+|-----|-----------|-------------|----------------|
+| `primary_key_defined` | Structural | Yes (Snowflake) | Platform: fraction of user tables with a declared PRIMARY KEY. Uses `information_schema.table_constraints`. |
+| `semantic_model_coverage` | Business | Yes (Snowflake) | Platform: fraction of user tables covered by a semantic view. Uses `information_schema.semantic_views`. Heuristic v1 (ratio of semantic views to tables); can be refined with DESCRIBE SEMANTIC VIEW for base-table mapping. |
+| `foreign_key_coverage` | Entity | Yes (Snowflake) | Platform: fraction of user tables with at least one FOREIGN KEY constraint. Uses `information_schema.table_constraints`. |
+| `temporal_scope_present` | Contextual | Yes (Snowflake) | Platform: fraction of user tables with at least one temporal column (DATE/TIMESTAMP type or temporal name pattern). Uses `information_schema.columns`. |
+
+---
+
+## Snowflake: Clean + Contextual
+
+| Factor | Key count | Suite file | Notes |
+|--------|-----------|------------|-------|
+| Clean (all 6) | 6 | `agent/suites/clean_snowflake.py` | Snowflake-native SQL (COUNT_IF, TRY_CAST). |
+| Contextual (all 4) | 4 | `agent/suites/contextual_snowflake.py` | Platform-level coverage queries. Appends to `common_snowflake`. |
+| Question-based (survey) | Optional | `agent/suites/questions/common_snowflake.yaml` | Available via `--survey`. |
 
 ---
 
