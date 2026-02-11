@@ -150,7 +150,21 @@ def build_estate_report(
 # Markdown rendering
 # ---------------------------------------------------------------------------
 
-_WORKLOAD_LABELS = {"l1": "L1 (Analytics)", "l2": "L2 (RAG)", "l3": "L3 (Training)"}
+_WORKLOAD_LABELS = {
+    "l1": "L1 (Analytics)",
+    "l2": "L2 (RAG)",
+    "l3": "L3 (Training)",
+    "analytics": "Analytics (L1)",
+    "rag": "RAG (L2)",
+    "training": "Training (L3)",
+}
+
+# Map descriptive workload names to level keys
+_WORKLOAD_TO_LEVEL = {
+    "analytics": "l1",
+    "rag": "l2",
+    "training": "l3",
+}
 
 
 def _fmt_measured(value: Any) -> str:
@@ -178,43 +192,75 @@ def _pass_icon(passed: bool) -> str:
     return "PASS" if passed else "FAIL"
 
 
-def _render_factor_section(factor_name: str, factor_results: list[dict], factor_sum: dict) -> list[str]:
-    """Render a single factor section with summary line and results table."""
+def _render_factor_section(factor_name: str, factor_results: list[dict], factor_sum: dict, target_level: str | None = None) -> list[str]:
+    """Render a single factor section with summary line and results table.
+    
+    If target_level is specified (l1, l2, l3), shows focused single-column output.
+    Otherwise shows all three levels.
+    """
     lines: list[str] = []
     display_name = factor_name.capitalize()
     lines.append(f"## Factor: {display_name}")
     lines.append("")
 
-    # Factor-level summary
     t = factor_sum.get("total_tests", 0)
-    lines.append(
-        f"L1: {factor_sum.get('l1_pass', 0)}/{t} ({factor_sum.get('l1_pct', 0)}%) "
-        f"| L2: {factor_sum.get('l2_pass', 0)}/{t} ({factor_sum.get('l2_pct', 0)}%) "
-        f"| L3: {factor_sum.get('l3_pass', 0)}/{t} ({factor_sum.get('l3_pct', 0)}%)"
-    )
-    lines.append("")
-
-    # Results table
-    lines.append("| Test | Requirement | Measured | Threshold (L1/L2/L3) | Dir | L1 | L2 | L3 |")
-    lines.append("|------|-------------|----------|----------------------|-----|----|----|-----|")
-    for r in factor_results:
-        test_id = r.get("test_id", "?")
-        # Shorten long test IDs for readability
-        if "|" in test_id:
-            parts = test_id.split("|")
-            test_id = parts[0] if len(parts) <= 1 else f"{parts[0]}|...{parts[-1]}"
+    
+    if target_level:
+        # Focused output for target workload
+        level_pass = factor_sum.get(f"{target_level}_pass", 0)
+        level_pct = factor_sum.get(f"{target_level}_pct", 0)
+        level_label = {"l1": "Analytics", "l2": "RAG", "l3": "Training"}.get(target_level, target_level.upper())
+        verdict = "✓ READY" if level_pass == t else f"✗ {t - level_pass} blocking"
+        lines.append(f"**{level_label}:** {level_pass}/{t} ({level_pct}%) — {verdict}")
+        lines.append("")
+        
+        # Simplified table with single Pass column
+        lines.append("| Test | Measured | Threshold | Result |")
+        lines.append("|------|----------|-----------|--------|")
+        for r in factor_results:
+            test_id = r.get("test_id", "?")
+            if "|" in test_id:
+                parts = test_id.split("|")
+                test_id = parts[0] if len(parts) <= 1 else f"{parts[0]}|...{parts[-1]}"
+            thresh = r.get("threshold", {})
+            level_thresh = thresh.get(target_level, "—")
+            passed = r.get(f"{target_level}_pass", False)
+            lines.append(
+                f"| {test_id} "
+                f"| {_fmt_measured(r.get('measured_value'))} "
+                f"| {level_thresh} "
+                f"| {_pass_icon(passed)} |"
+            )
+            if r.get("error"):
+                lines.append(f"| | **Error:** {r['error']} | | |")
+    else:
+        # Full output with all levels
         lines.append(
-            f"| {test_id} "
-            f"| {r.get('requirement', '?')} "
-            f"| {_fmt_measured(r.get('measured_value'))} "
-            f"| {_fmt_threshold(r.get('threshold', {}))} "
-            f"| {r.get('direction', 'lte')} "
-            f"| {_pass_icon(r.get('l1_pass', False))} "
-            f"| {_pass_icon(r.get('l2_pass', False))} "
-            f"| {_pass_icon(r.get('l3_pass', False))} |"
+            f"L1: {factor_sum.get('l1_pass', 0)}/{t} ({factor_sum.get('l1_pct', 0)}%) "
+            f"| L2: {factor_sum.get('l2_pass', 0)}/{t} ({factor_sum.get('l2_pct', 0)}%) "
+            f"| L3: {factor_sum.get('l3_pass', 0)}/{t} ({factor_sum.get('l3_pct', 0)}%)"
         )
-        if r.get("error"):
-            lines.append(f"| | | **Error:** {r['error']} | | | | | |")
+        lines.append("")
+
+        lines.append("| Test | Requirement | Measured | Threshold (L1/L2/L3) | Dir | L1 | L2 | L3 |")
+        lines.append("|------|-------------|----------|----------------------|-----|----|----|-----|")
+        for r in factor_results:
+            test_id = r.get("test_id", "?")
+            if "|" in test_id:
+                parts = test_id.split("|")
+                test_id = parts[0] if len(parts) <= 1 else f"{parts[0]}|...{parts[-1]}"
+            lines.append(
+                f"| {test_id} "
+                f"| {r.get('requirement', '?')} "
+                f"| {_fmt_measured(r.get('measured_value'))} "
+                f"| {_fmt_threshold(r.get('threshold', {}))} "
+                f"| {r.get('direction', 'lte')} "
+                f"| {_pass_icon(r.get('l1_pass', False))} "
+                f"| {_pass_icon(r.get('l2_pass', False))} "
+                f"| {_pass_icon(r.get('l3_pass', False))} |"
+            )
+            if r.get("error"):
+                lines.append(f"| | | **Error:** {r['error']} | | | | | |")
     lines.append("")
     return lines
 
@@ -230,6 +276,8 @@ def report_to_markdown(report: dict) -> str:
     s = report.get("summary", {})
     tw = report.get("target_workload")
     tw_label = _WORKLOAD_LABELS.get(tw, "Not specified") if tw else "Not specified"
+    # Convert workload name to level (e.g., "rag" -> "l2")
+    target_level = _WORKLOAD_TO_LEVEL.get(tw) if tw else None
 
     lines = [
         "# AI-Ready Data Assessment Report",
@@ -240,12 +288,26 @@ def report_to_markdown(report: dict) -> str:
         "",
         "## Summary",
         "",
-        f"- Total tests: {s.get('total_tests', 0)}",
-        f"- L1 pass: {s.get('l1_pass', 0)}/{s.get('total_tests', 0)} ({s.get('l1_pct', 0)}%)",
-        f"- L2 pass: {s.get('l2_pass', 0)}/{s.get('total_tests', 0)} ({s.get('l2_pct', 0)}%)",
-        f"- L3 pass: {s.get('l3_pass', 0)}/{s.get('total_tests', 0)} ({s.get('l3_pct', 0)}%)",
-        "",
     ]
+    
+    total = s.get('total_tests', 0)
+    if target_level:
+        # Focused summary for target workload
+        level_pass = s.get(f'{target_level}_pass', 0)
+        level_pct = s.get(f'{target_level}_pct', 0)
+        level_label = {"l1": "Analytics", "l2": "RAG", "l3": "Training"}.get(target_level, target_level.upper())
+        verdict = "✓ READY" if level_pass == total else f"✗ {total - level_pass} tests need attention"
+        lines.append(f"**{level_label} Readiness:** {level_pass}/{total} ({level_pct}%) — {verdict}")
+        lines.append("")
+    else:
+        # Full summary with all levels
+        lines.extend([
+            f"- Total tests: {total}",
+            f"- L1 pass: {s.get('l1_pass', 0)}/{total} ({s.get('l1_pct', 0)}%)",
+            f"- L2 pass: {s.get('l2_pass', 0)}/{total} ({s.get('l2_pct', 0)}%)",
+            f"- L3 pass: {s.get('l3_pass', 0)}/{total} ({s.get('l3_pct', 0)}%)",
+            "",
+        ])
 
     # Factor-by-factor breakdown
     factor_summaries = {fs["factor"]: fs for fs in report.get("factor_summary", [])}
@@ -255,7 +317,7 @@ def report_to_markdown(report: dict) -> str:
 
     for factor in sorted(results_by_factor):
         fs = factor_summaries.get(factor, {})
-        lines.extend(_render_factor_section(factor, results_by_factor[factor], fs))
+        lines.extend(_render_factor_section(factor, results_by_factor[factor], fs, target_level))
 
     # Survey results
     qr = report.get("question_results")

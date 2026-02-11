@@ -14,8 +14,10 @@ NULL_RATE_TEMPLATE = (
     "FROM {schema_q}.{table_q}"
 )
 DUPLICATE_RATE_TEMPLATE = (
-    "SELECT 1.0 - (SELECT COUNT(*)::FLOAT FROM (SELECT DISTINCT * FROM {schema_q}.{table_q}) _) / "
-    "NULLIF((SELECT COUNT(*)::FLOAT FROM {schema_q}.{table_q}), 0) AS v"
+    "WITH total AS (SELECT COUNT(*) AS cnt FROM {schema_q}.{table_q}), "
+    "distinct_cnt AS (SELECT COUNT(*) AS cnt FROM (SELECT DISTINCT * FROM {schema_q}.{table_q})) "
+    "SELECT 1.0 - distinct_cnt.cnt::FLOAT / NULLIF(total.cnt::FLOAT, 0) AS v "
+    "FROM total, distinct_cnt"
 )
 ZERO_NEGATIVE_RATE_TEMPLATE = (
     "SELECT COUNT_IF({column_q} <= 0) * 1.0 / NULLIF(COUNT(*), 0) AS v "

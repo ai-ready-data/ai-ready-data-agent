@@ -116,7 +116,15 @@ def _parse_connection_string(connection_string: str) -> dict:
     # Named connection: snowflake://connection:NAME
     named = _is_named_connection(connection_string)
     if named is not None:
-        return _load_named_connection(named)
+        out = _load_named_connection(named)
+        # Apply env var fallbacks for fields not in the TOML
+        if not out.get("database"):
+            out["database"] = os.environ.get("SNOWFLAKE_DATABASE", "").strip() or None
+        if not out.get("schema"):
+            out["schema"] = os.environ.get("SNOWFLAKE_SCHEMA", "").strip() or None
+        if not out.get("warehouse"):
+            out["warehouse"] = os.environ.get("SNOWFLAKE_WAREHOUSE", "").strip() or None
+        return {k: v for k, v in out.items() if v is not None}
 
     out: dict = {}
     if "://" in connection_string:

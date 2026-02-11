@@ -74,24 +74,31 @@ def discover(
         )
     schemas_seen: set[str] = set()
     tables_list: list[dict] = []
+    # Normalize table filters: accept both "TABLE" and "SCHEMA.TABLE" formats
+    tables_upper = {t.upper() for t in (tables or [])} if tables else None
     for row in tables_rows:
         schema_name = row[0] if isinstance(row, (tuple, list)) else row["table_schema"]
         table_name = row[1] if isinstance(row, (tuple, list)) else row["table_name"]
         full_name = f"{schema_name}.{table_name}"
         if schemas and schema_name not in schemas:
             continue
-        if tables and full_name not in tables:
-            continue
+        # Match by full name OR just table name (case-insensitive)
+        if tables_upper:
+            if full_name.upper() not in tables_upper and table_name.upper() not in tables_upper:
+                continue
         schemas_seen.add(schema_name)
         tables_list.append({"schema": schema_name, "table": table_name, "full_name": full_name})
 
     columns_list: list[dict] = []
     for t in tables_list:
         try:
+            # Use string literals instead of params for cross-platform compatibility
+            # (DuckDB uses ?, Snowflake uses %s or :name - this avoids the issue)
+            schema_escaped = t["schema"].replace("'", "''")
+            table_escaped = t["table"].replace("'", "''")
             cols = execute_readonly(
                 conn,
-                "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = ? AND table_name = ? ORDER BY ordinal_position",
-                (t["schema"], t["table"]),
+                f"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = '{schema_escaped}' AND table_name = '{table_escaped}' ORDER BY ordinal_position",
             )
         except Exception:
             cols = []

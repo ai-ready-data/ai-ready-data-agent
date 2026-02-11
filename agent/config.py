@@ -46,6 +46,7 @@ class Config:
     audit: bool = False
     survey: bool = False
     survey_answers_path: Optional[Path] = None
+    target_workload: Optional[str] = None  # analytics, rag, training -> maps to l1, l2, l3
 
     # Paths and logging
     db_path: Path = field(default_factory=default_db_path)
@@ -117,6 +118,7 @@ class Config:
         audit: Optional[bool] = None,
         survey: Optional[bool] = None,
         survey_answers_path: Optional[Path] = None,
+        target_workload: Optional[str] = None,
         db_path: Optional[Path] = None,
         log_level: Optional[str] = None,
         inventory_path: Optional[str] = None,
@@ -146,6 +148,7 @@ class Config:
             audit=audit if audit is not None else self.audit,
             survey=survey if survey is not None else self.survey,
             survey_answers_path=survey_answers_path if survey_answers_path is not None else self.survey_answers_path,
+            target_workload=target_workload if target_workload is not None else self.target_workload,
             db_path=db_path if db_path is not None else self.db_path,
             log_level=log_level if log_level is not None else self.log_level,
             inventory_path=inventory_path if inventory_path is not None else self.inventory_path,

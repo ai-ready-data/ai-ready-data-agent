@@ -77,6 +77,7 @@ def _config_from_args(parser: argparse.ArgumentParser, args: argparse.Namespace)
         audit=getattr(args, "audit", None) or cfg.audit,
         survey=getattr(args, "survey", None) or cfg.survey,
         survey_answers_path=Path(args.survey_answers) if getattr(args, "survey_answers", None) else cfg.survey_answers_path,
+        target_workload=getattr(args, "workload", None) or cfg.target_workload,
         db_path=Path(args.db_path) if getattr(args, "db_path", None) else cfg.db_path,
         log_level=getattr(args, "log_level", None) or cfg.log_level,
         inventory_path=getattr(args, "inventory", None),
@@ -237,6 +238,8 @@ def main() -> None:
     p_assess.add_argument("-o", "--output", default="markdown")
     p_assess.add_argument("--thresholds", default=None)
     p_assess.add_argument("--context", default=None)
+    p_assess.add_argument("--workload", default=None, choices=["analytics", "rag", "training"],
+                          help="Target workload level: analytics (L1), rag (L2), training (L3)")
     p_assess.add_argument("--no-save", action="store_true")
     p_assess.add_argument("--compare", action="store_true")
     p_assess.add_argument("--dry-run", action="store_true")

@@ -4,8 +4,18 @@ import json
 import sqlite3
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal
 from pathlib import Path
 from typing import Optional
+
+
+class DecimalEncoder(json.JSONEncoder):
+    """JSON encoder that handles Decimal types from database results."""
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super().default(obj)
+
 
 SCHEMA_VERSION = 1
 
@@ -61,7 +71,7 @@ def save_report(conn: sqlite3.Connection, report: dict) -> str:
     fingerprint = report.get("connection_fingerprint") or ""
     conn.execute(
         "INSERT INTO assessments (id, created_at, connection_fingerprint, report_json) VALUES (?, ?, ?, ?)",
-        (aid, created_at, fingerprint, json.dumps(report)),
+        (aid, created_at, fingerprint, json.dumps(report, cls=DecimalEncoder)),
     )
     conn.commit()
     return aid

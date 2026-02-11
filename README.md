@@ -58,16 +58,32 @@ Step-by-step checklist: [docs/E2E-from-GitHub.md](docs/E2E-from-GitHub.md).
 
 Built-in support for **DuckDB** and **SQLite** (no extra driver). Additional platforms (e.g. Snowflake) can be added via the platform registry — see [docs/specs](docs/specs/) and [docs/log](docs/log/). Run `python scripts/verify_setup.py` to confirm the agent works (no credentials); use `--write-files` to create sample.duckdb, sample.sqlite, and connections.yaml for CLI/estate runs.
 
+## The Three Workload Levels
+
+Whether data is "AI-ready" depends on what you're building. Different use cases have different tolerance for issues, so the framework defines three workload levels. Every requirement and threshold is scoped to a level.
+
+| Level | Workload | Tolerance for issues | What it means |
+|-------|----------|----------------------|---------------|
+| **L1** | Descriptive analytics and BI | Moderate | Humans are in the loop. An analyst can spot and compensate for a missing value or an undeclared relationship. |
+| **L2** | RAG and retrieval systems | Low | Any chunk of data can become a model response. Ambiguity, staleness, or missing context propagates directly to the end user. |
+| **L3** | ML model training and fine-tuning | Very low | Errors are not just retrieved — they are *learned*. Bad data becomes bad weights, silently and permanently. |
+
+Levels are ordered by **strictness of requirements**, not by maturity. L3 is not "better" than L1 — it is a different use case with stricter demands. Meeting a stricter level implies meeting the less strict ones (additivity): if your data passes at L3 for a given requirement, it passes at L2 and L1 too.
+
+Canonical definitions and rationale: [docs/definitions.md](docs/definitions.md).
+
+---
+
 ## What's In This Repo
 
 ### [The Factors](factors/)
 
-The AI-Ready Data Project defines six factors of AI-ready data with requirements at three workload levels (L1: Analytics, L2: RAG, L3: Training).
+The AI-Ready Data Project defines six factors of AI-ready data. Each factor has requirements at all three workload levels.
 
 | Factor | Name | Definition |
 |--------|------|-------------|
 | **0** | [**Clean**](factors/factor-00-clean.md) | Accurate, complete, valid, and free of errors |
-| **1** | **Contextual** | *(to be added)* |
+| **1** | [**Contextual**](factors/factor-01-contextual.md) | Meaning is explicit and colocated with the data |
 | **2** | **Consumable** | *(to be added)* |
 | **3** | **Current** | *(to be added)* |
 | **4** | **Correlated** | *(to be added)* |
@@ -83,12 +99,13 @@ A Python CLI with purpose-built test suites. The output is a scored report showi
 
 **Built-in suites:**
 
-| Suite | Platform | What it uses |
-|-------|----------|---------------|
-| `common` | DuckDB | ANSI SQL + information_schema. Clean factor (null_rate, duplicate_rate, table_discovery). |
-| `common_sqlite` | SQLite | SQLite-compatible Clean factor (sqlite_master, pragma table_info). |
+| Suite | Platform | Factors | What it uses |
+|-------|----------|---------|---------------|
+| `common` | DuckDB | Clean | ANSI SQL + information_schema (null_rate, duplicate_rate, table_discovery). |
+| `common_sqlite` | SQLite | Clean | SQLite-compatible (sqlite_master, pragma table_info). |
+| `common_snowflake` | Snowflake | Clean + Contextual | Snowflake-native SQL via information_schema (null_rate, duplicate_rate, primary_key_defined, semantic_model_coverage, foreign_key_coverage, temporal_scope_present). |
 
-The suite is auto-detected from your connection. Or specify it: `--suite common` or `--suite common_sqlite`.
+The suite is auto-detected from your connection. Or specify it: `--suite common`, `--suite common_sqlite`, or `--suite common_snowflake`.
 
 ### [Design & Specs](docs/)
 
@@ -97,16 +114,17 @@ Specifications, design rationale, and architecture:
 - [Project spec](docs/specs/project-spec.md) — purpose, layers, outcomes
 - [CLI spec](docs/specs/cli-spec.md) — commands, artifacts, config
 - [Factor spec](docs/specs/factor-spec.md) — factor document shape, requirement keys
+- [Report spec](docs/specs/report-spec.md) — canonical report JSON schema and markdown rendering
 - [Design log](docs/log/) — composability, architecture, multi-connection/estate, analysis
 
 ## How It Works
 
-1. **Connect** — Point the agent at your database (connection string or `AIRD_CONNECTION_STRING`). For a **data estate**, pass multiple connections (repeatable `-c` or `--connections-file`).
+1. **Connect** — Point the agent at your database (connection string or `AIRD_CONNECTION_STRING`). For a **data estate**, pass multiple connections (repeatable `-c` or `--connections-file`). Snowflake users can use `snowflake://connection:NAME` to reuse `~/.snowflake/connections.toml`.
 2. **Discover** — The agent enumerates schemas, tables, and columns (or use `aird discover` alone).
 3. **Generate** — Tests are generated from the selected suite and inventory.
 4. **Execute** — Queries run against your data source (read-only), producing measurements.
-5. **Score** — Results are assessed against L1/L2/L3 thresholds.
-6. **Report** — A scored report shows where you stand and what to fix.
+5. **Score** — Each measurement is compared against thresholds at all three workload levels (L1, L2, L3). The report tells you which levels your data is ready for.
+6. **Report** — A scored report grouped by factor shows where you stand and what to fix. Report schema: [docs/specs/report-spec.md](docs/specs/report-spec.md).
 7. **Save** — Results are stored locally in SQLite (`~/.aird/assessments.db` by default, or `AIRD_DB_PATH`) for history and diffing.
 
 ```bash
