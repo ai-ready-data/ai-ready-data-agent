@@ -53,3 +53,4 @@ Stable identifiers for use in test definitions, threshold config, and remediatio
 | Type consistency | `type_inconsistency_rate` |
 | Numeric validity | `zero_negative_rate` |
 
+Implementation status by suite and platform: [docs/coverage/README.md](../docs/coverage/README.md).

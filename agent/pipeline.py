@@ -12,23 +12,27 @@ from agent.audit import AuditSink
 
 def run_assess(config: Config) -> dict:
     """Run full pipeline. Returns report dict; caller handles output and save."""
-    connections = config.get_connections()
-    if not connections:
+    targets = config.get_targets()
+    if not targets:
         raise ValueError("connection(s) required for assess (use -c, --connections-file, or AIRD_CONNECTION_STRING)")
 
-    if len(connections) == 1:
-        return _run_assess_single(config, connections[0])
-    return _run_assess_estate(config, connections)
+    if len(targets) == 1:
+        return _run_assess_single(config, targets[0])
+    return _run_assess_estate(config, targets)
 
 
-def _run_assess_single(config: Config, connection: str) -> dict:
-    """Single-connection assess: discover → run → report → [save] → return."""
+def _run_assess_single(config: Config, target: dict) -> dict:
+    """Single-target assess: discover → run → report → [save] → return."""
+    connection = target["connection"]
+    # Per-target scope overrides global config when present
+    schemas = target.get("schemas") or config.schemas or None
+    tables = target.get("tables") or config.tables or None
     audit = AuditSink(config.db_path, config.audit)
 
     inv = discover(
         connection,
-        schemas=config.schemas or None,
-        tables=config.tables or None,
+        schemas=schemas,
+        tables=tables,
     )
 
     if config.interactive and config.audit:
@@ -74,17 +78,20 @@ def _run_assess_single(config: Config, connection: str) -> dict:
     return report
 
 
-def _run_assess_estate(config: Config, connections: list[str]) -> dict:
-    """Estate assess: for each connection discover → run, then build estate report and save."""
+def _run_assess_estate(config: Config, targets: list[dict]) -> dict:
+    """Estate assess: for each target discover → run, then build estate report and save."""
     platforms: list[dict] = []
     dry_run_previews: list[dict] = []
-    for connection in connections:
+    for target in targets:
+        connection = target["connection"]
         fp = _fingerprint(connection)
+        schemas = target.get("schemas") or config.schemas or None
+        tables = target.get("tables") or config.tables or None
         try:
             inv = discover(
                 connection,
-                schemas=config.schemas or None,
-                tables=config.tables or None,
+                schemas=schemas,
+                tables=tables,
             )
         except Exception as e:
             platforms.append({

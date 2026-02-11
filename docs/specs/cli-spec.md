@@ -72,7 +72,7 @@ Pipeline: **connection(s) + context** → [per connection: discover → **invent
 | Argument | Env fallback | Default | Description |
 |----------|--------------|---------|-------------|
 | `--connection`, `-c` | `AIRD_CONNECTION_STRING` (single) | — | Database connection string. **Repeatable:** when given multiple times (or combined with `--connections-file`), all connections are assessed in one run (estate mode). At least one connection required via one or more `-c` or `--connections-file`. |
-| `--connections-file` | `AIRD_CONNECTIONS_FILE` | — | Path to file with one connection string per line. Blank and `#` comment lines ignored. Combined with any `-c`; together they form the connection list for the run. |
+| `--connections-file` | `AIRD_CONNECTIONS_FILE` | — | Path to connections manifest (YAML or JSON; extension .yaml, .yml, or .json). List of entries; each entry is a connection string or an object with `connection` and optional `targets` (databases, schemas, tables). See [manifest-spec.md](manifest-spec.md). If not set and no `-c` given, CLI uses default `~/.aird/connections.yaml` when it exists. Combined with any `-c`; together they form the assessment target list. |
 | `--schema`, `-s` | — | all non-system | Schemas to include (repeatable). Applies to all connections. |
 | `--tables`, `-t` | — | — | Specific tables (schema.table); when set, only these tables are in scope. Applies to all connections. |
 | `--suite` | — | auto | Test suite: auto (detect from connection), common, snowflake, etc. Resolved per connection. |
@@ -158,7 +158,7 @@ Pipeline: **connection(s) + context** → [per connection: discover → **invent
 
 **Configuration:**
 
-- **Connection(s):** Single connection via `--connection` / `-c` or `AIRD_CONNECTION_STRING`. For **estate** (multi-connection) runs: repeatable `-c` and/or `--connections-file` (path to a file with one connection string per line); env `AIRD_CONNECTIONS_FILE` may supply the path. Connection string format is platform-specific; see the platform support doc in the repo. Example forms: `snowflake://…`, `duckdb://path/to/file`.
+- **Connection(s):** Single connection via `--connection` / `-c` or `AIRD_CONNECTION_STRING`. For **estate** (multi-connection) runs: repeatable `-c` and/or `--connections-file` (path to a YAML/JSON manifest); env `AIRD_CONNECTIONS_FILE` may supply the path. When no `-c` and no `--connections-file` are given, the CLI uses the default **connections manifest** `~/.aird/connections.yaml` if that file exists. Manifest entries may use `env:VAR_NAME`; the CLI expands from the environment. Connection string format is platform-specific; see the platform support doc in the repo. Example forms: `snowflake://…`, `duckdb://path/to/file`.
 - **Context:** Optional YAML file (scope, exclusions, target level, nullable-by-design, PII overrides, freshness SLAs). Via `--context` or `AIRD_CONTEXT`.
 - **Thresholds:** Optional JSON file (per-requirement L1/L2/L3 thresholds). Via `--thresholds` or `AIRD_THRESHOLDS`. Default: built-in thresholds.
 - **Output default:** Via `AIRD_OUTPUT` (e.g. markdown, stdout).

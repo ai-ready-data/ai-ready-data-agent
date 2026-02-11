@@ -38,18 +38,25 @@ aird assess -c "duckdb://:memory:"
 # Or with env: export AIRD_CONNECTION_STRING="duckdb://path/to/file.duckdb" && aird assess
 ```
 
-**Full E2E with sample data** (clone → install → create sample DB → assess):
+**Verify setup** (no credentials; run when you first land):
+
+```bash
+python scripts/verify_setup.py
+```
+
+**Full E2E with sample data** (clone → install → verify → assess):
 
 ```bash
 git clone https://github.com/ai-ready-data/ai-ready-data-agent.git && cd ai-ready-data-agent
 pip install -e .
-python scripts/create_sample_duckdb.py
+python scripts/verify_setup.py --write-files
 aird assess -c "duckdb://sample.duckdb" -o markdown
+# Or estate: aird assess --connections-file connections.yaml -o markdown
 ```
 
 Step-by-step checklist: [docs/E2E-from-GitHub.md](docs/E2E-from-GitHub.md).
 
-Built-in support for **DuckDB** and **SQLite** (no extra driver). Additional platforms (e.g. Snowflake) can be added via the platform registry — see [docs/specs](docs/specs/) and [docs/log](docs/log/). For E2E with both: `python scripts/setup_sample_databases.py` then `aird assess --connections-file connections.txt -o markdown`.
+Built-in support for **DuckDB** and **SQLite** (no extra driver). Additional platforms (e.g. Snowflake) can be added via the platform registry — see [docs/specs](docs/specs/) and [docs/log](docs/log/). Run `python scripts/verify_setup.py` to confirm the agent works (no credentials); use `--write-files` to create sample.duckdb, sample.sqlite, and connections.yaml for CLI/estate runs.
 
 ## What's In This Repo
 
@@ -108,10 +115,10 @@ aird assess -c "duckdb://:memory:" -o markdown
 
 # Data estate: multiple connections in one run (one report, per-connection + aggregate)
 aird assess -c "duckdb://db1.duckdb" -c "duckdb://db2.duckdb" -o markdown
-# Or: aird assess --connections-file connections.txt -o markdown
+# Or: aird assess --connections-file connections.yaml -o markdown
 
-# Try the Clean factor suite on a real DB (create sample, then assess)
-python scripts/create_sample_duckdb.py && aird assess -c "duckdb://sample.duckdb" -o markdown
+# Try the Clean factor suite (create sample files, then assess)
+python scripts/verify_setup.py --write-files && aird assess -c "duckdb://sample.duckdb" -o markdown
 
 # Composable: discover → run → report → save
 aird discover -c "duckdb://file.duckdb" -o inventory.json

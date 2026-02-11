@@ -66,3 +66,5 @@ No schema or API changes to storage or CLI; existing commands and artifacts unch
 
 - **Automated E2E test**  
   Add a pytest (or script) that creates a temp DuckDB with `create_sample_duckdb`-style data, runs `assess`, and asserts on report structure and expected pass/fail counts.
+
+*Later: sample scripts were consolidated into `scripts/verify_setup.py` (temp DuckDB + SQLite, run assess, no credentials; optional `--write-files` for sample.duckdb/sample.sqlite/connections.yaml).*

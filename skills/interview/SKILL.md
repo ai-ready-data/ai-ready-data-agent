@@ -24,15 +24,17 @@ Three phases of structured questions so the agent can tailor the assessment and 
 
 Ask in order of priority. Use progressive disclosure.
 
-1. **Target workload:** "What are you building toward: analytics dashboards (L1), RAG/search (L2), or model training (L3)?" Drives which threshold level to emphasize and how to prioritize failures.
+1. **Platforms (first):** "What platforms do you have access to? (e.g. DuckDB, SQLite, Snowflake.)" I'll add each to your **connections manifest** so we have a single source of truth for your estate. If you only have one database, we can skip the manifest and use a connection string directly.
 
-2. **Data estate:** "Are there schemas we should skip? (e.g. staging, scratch, test.)" Informs scope; can be passed as `--schema` or exclusions when supported.
+2. **Target workload:** "What are you building toward: analytics dashboards (L1), RAG/search (L2), or model training (L3)?" Drives which threshold level to emphasize and how to prioritize failures.
 
-3. **Infrastructure:** "Do you use dbt, a data catalog, OpenTelemetry, or Iceberg?" Helps explain what can or can't be assessed.
+3. **Data estate:** "Are there schemas we should skip? (e.g. staging, scratch, test.)" Informs scope; can be passed as `--schema` or exclusions when supported.
 
-4. **Governance:** "Do you have PII classification? Which columns are sensitive?" Relevant for Compliant factor when implemented.
+4. **Infrastructure:** "Do you use dbt, a data catalog, OpenTelemetry, or Iceberg?" Helps explain what can or can't be assessed.
 
-5. **Pain points:** "What prompted this assessment? Any known issues?" Helps validate that the assessment catches what matters.
+5. **Governance:** "Do you have PII classification? Which columns are sensitive?" Relevant for Compliant factor when implemented.
+
+6. **Pain points:** "What prompted this assessment? Any known issues?" Helps validate that the assessment catches what matters.
 
 **STOP:** Wait for user responses before proceeding to connect.
 

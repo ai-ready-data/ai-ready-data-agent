@@ -2,10 +2,11 @@
 *.egg-info/
 *.egg
 
-# E2E sample DBs (scripts/create_sample_duckdb.py, scripts/setup_sample_databases.py)
+# E2E sample DBs (scripts/verify_setup.py --write-files)
 sample.duckdb
 sample.sqlite
 connections.txt
+connections.yaml
 
 # Python
 __pycache__/

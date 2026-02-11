@@ -20,12 +20,17 @@ Use this when you’ve just landed on the repo (e.g. from the GitHub URL) and wa
    pip install -e .
    ```
 
-3. **Create sample databases** (optional but recommended for a realistic run)
+3. **Verify setup** (recommended when you first land — no credentials)
    ```bash
-   python scripts/setup_sample_databases.py
+   python scripts/verify_setup.py
    ```
-   This creates `sample.duckdb`, `sample.sqlite`, and `connections.txt` in the repo root (all in .gitignore) with the same `main.products` data (nulls/duplicates) for the Clean suite. Use for single-DB or estate (multi-DB) tests.
-   Alternatively, only DuckDB: `python scripts/create_sample_duckdb.py`
+   Creates temporary DuckDB and SQLite DBs, runs the assessment for both, then removes them. Exit 0 means the agent is ready.
+
+   **Optional: create sample files** for later CLI/estate runs:
+   ```bash
+   python scripts/verify_setup.py --write-files
+   ```
+   This creates `sample.duckdb`, `sample.sqlite`, and `connections.yaml` in the repo root (all in .gitignore).
 
 4. **Run the assessment**
    ```bash
@@ -35,7 +40,7 @@ Use this when you’ve just landed on the repo (e.g. from the GitHub URL) and wa
    Or in-memory DuckDB: `aird assess -c "duckdb://:memory:" -o markdown`
 
    **Optional: data estate** (multiple connections in one run):  
-   After `setup_sample_databases.py`: `aird assess --connections-file connections.txt -o markdown`  
+   After `verify_setup.py --write-files`: `aird assess --connections-file connections.yaml -o markdown`  
    Or: `aird assess -c "duckdb://sample.duckdb" -c "sqlite://sample.sqlite" -o markdown`
 
 5. **Optional: history and diff**

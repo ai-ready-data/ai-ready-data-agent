@@ -29,8 +29,9 @@ class Config:
 
     # Connection and scope
     connection: Optional[str] = None  # single connection (discover, run); also first of connections when in assess
-    connections: list[str] = field(default_factory=list)  # for assess: one or more connections (estate)
-    schemas: list[str] = field(default_factory=list)
+    connections: list[str] = field(default_factory=list)  # for assess: flat list when no assessment_targets
+    assessment_targets: list[dict] = field(default_factory=list)  # for assess: [{ connection, schemas?, tables?, databases? }, ...]; when set, used instead of connections
+    schemas: list[str] = field(default_factory=list)  # global filter when target has no scope
     tables: list[str] = field(default_factory=list)
     context_path: Optional[Path] = None
 
@@ -65,12 +66,22 @@ class Config:
     diff_right: Optional[str] = None
 
     def get_connections(self) -> list[str]:
-        """List of connections to assess. For single-connection, returns [connection]; for estate, returns connections."""
+        """List of connections to assess (flat). From assessment_targets when set, else connections/connection."""
+        if self.assessment_targets:
+            return [t["connection"] for t in self.assessment_targets]
         if self.connections:
             return self.connections
         if self.connection:
             return [self.connection]
         return []
+
+    def get_targets(self) -> list[dict]:
+        """List of assessment targets: each { connection, schemas?, tables?, databases? }. Used for per-target scope."""
+        if self.assessment_targets:
+            return self.assessment_targets
+        # Legacy: no per-target scope
+        conns = self.get_connections()
+        return [{"connection": c} for c in conns]
 
     @classmethod
     def from_env(cls) -> "Config":
@@ -90,6 +101,7 @@ class Config:
         *,
         connection: Optional[str] = None,
         connections: Optional[list[str]] = None,
+        assessment_targets: Optional[list[dict]] = None,
         schemas: Optional[list[str]] = None,
         tables: Optional[list[str]] = None,
         context_path: Optional[Path] = None,
@@ -116,6 +128,7 @@ class Config:
         return Config(
             connection=connection if connection is not None else self.connection,
             connections=connections if connections is not None else self.connections,
+            assessment_targets=assessment_targets if assessment_targets is not None else self.assessment_targets,
             schemas=schemas if schemas is not None else self.schemas,
             tables=tables if tables is not None else self.tables,
             context_path=context_path if context_path is not None else self.context_path,

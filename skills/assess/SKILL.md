@@ -51,7 +51,7 @@ aird assess -c "duckdb://db1.duckdb" -c "duckdb://db2.duckdb" -o markdown
 Or use a file (one connection string per line; `#` and blank lines ignored):
 
 ```bash
-aird assess --connections-file connections.txt -o markdown
+aird assess --connections-file connections.yaml -o markdown
 ```
 
 Env: `AIRD_CONNECTIONS_FILE` can point to the file path.

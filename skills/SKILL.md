@@ -42,21 +42,21 @@ DuckDB is included. For Snowflake: `pip install -e ".[snowflake]"`.
 
 ## Workflow
 
-### Step 1: Gather Context
+### Step 1: Gather Context and Platforms
 
 **Load** [interview/SKILL.md](interview/SKILL.md) (Phase 1 only)
 
-Ask the user about their goals, data estate, and infrastructure context before connecting. Use answers to tailor scope and interpretation later.
+Ask **what platforms they have access to** (DuckDB, SQLite, Snowflake, …). Optionally add each to the [connections manifest](references/connections-manifest.md) so the manifest is the source of truth for their estate (single-DB users can skip the manifest and use `-c` only). Then ask about goals, workload (L1/L2/L3), and scope.
 
 **STOP:** Wait for user responses before proceeding.
 
-### Step 2: Connect to Database
+### Step 2: Connect and Add to Manifest
 
 **Load** [connect/SKILL.md](connect/SKILL.md)
 
-Establish that the user has a connection string (or env) and the right driver. Built-in support for DuckDB; Snowflake optional. See [references/platforms.md](references/platforms.md).
+For each platform the user named, establish a connection string (or env) and the right driver. **Add each connection to the connections manifest** (create or append at `~/.aird/connections.yaml` or `AIRD_CONNECTIONS_FILE`; manifest is YAML or JSON). Use `env:VAR_NAME` for any connection that contains secrets. See [references/platforms.md](references/platforms.md) and [references/connections-manifest.md](references/connections-manifest.md).
 
-**STOP:** Confirm connection is established.
+**STOP:** Confirm connection(s) established and manifest updated.
 
 ### Step 3: Discover and Confirm Scope
 

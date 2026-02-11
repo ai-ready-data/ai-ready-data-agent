@@ -14,6 +14,28 @@ def _quote_ident(s: str) -> str:
     return '"' + str(s).replace('"', '""') + '"'
 
 
+# Numeric type names (for zero_negative_rate, type_inconsistency_rate scoping)
+_NUMERIC_TYPE_KEYWORDS = ("INT", "BIGINT", "SMALLINT", "TINYINT", "DOUBLE", "FLOAT", "REAL", "NUMERIC", "DECIMAL")
+# Date-like column name substrings (for format_inconsistency_rate scoping)
+_DATE_LIKE_NAME_PARTS = ("date", "time", "created", "updated", "_at")
+_STRING_TYPE_KEYWORDS = ("VARCHAR", "CHAR", "TEXT", "STRING")
+
+
+def _column_matches_requirement(col: dict, requirement: str) -> bool:
+    """True if this column is in scope for the requirement (so the agent can use inventory + LLM to refine later)."""
+    data_type = (col.get("data_type") or "").upper()
+    col_name = (col.get("column") or "").lower()
+    if requirement == "zero_negative_rate":
+        return any(kw in data_type for kw in _NUMERIC_TYPE_KEYWORDS)
+    if requirement == "type_inconsistency_rate":
+        return any(kw in data_type for kw in _NUMERIC_TYPE_KEYWORDS)
+    if requirement == "format_inconsistency_rate":
+        if any(kw in data_type for kw in _STRING_TYPE_KEYWORDS):
+            return any(part in col_name or col_name.endswith("_at") for part in _DATE_LIKE_NAME_PARTS)
+        return False
+    return True
+
+
 def expand_tests(suite_tests: List[dict], inventory: dict) -> List[dict]:
     """Expand suite test defs (with optional query_template) into concrete tests using inventory."""
     out: List[dict] = []
@@ -36,6 +58,8 @@ def expand_tests(suite_tests: List[dict], inventory: dict) -> List[dict]:
         requirement = t.get("requirement", "")
         if target_type == "column":
             for col in inventory.get("columns", []):
+                if not _column_matches_requirement(col, requirement):
+                    continue
                 schema_q = _quote_ident(col["schema"])
                 table_q = _quote_ident(col["table"])
                 column_q = _quote_ident(col["column"])

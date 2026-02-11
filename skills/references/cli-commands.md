@@ -4,7 +4,7 @@ Invoke as `aird` or `python -m agent.cli`. If `aird` is not on PATH, use `python
 
 | Command | Purpose | Main flags |
 |---------|---------|------------|
-| **assess** | Full pipeline: discover → run → report → [save] → output. Single DB or **estate** (multiple connections → one report). | `-c` (repeatable), `--connection`, `--connections-file` (or `AIRD_CONNECTIONS_FILE`), `AIRD_CONNECTION_STRING`, `-o` (markdown \| stdout \| json:path), `--no-save`, `--compare`, `--dry-run`, `--context`, `--suite`, `-i`/`--interactive`, `--audit` |
+| **assess** | Full pipeline: discover → run → report → [save] → output. Single DB or **estate** (multiple targets → one report). With no `-c` and no `--connections-file`, uses default manifest `~/.aird/connections.yaml` if it exists. Manifest is YAML/JSON; entries may use `env:VAR_NAME`. | `-c` (repeatable), `--connection`, `--connections-file` (or `AIRD_CONNECTIONS_FILE`), `AIRD_CONNECTION_STRING`, `-o` (markdown \| stdout \| json:path), `--no-save`, `--compare`, `--dry-run`, `--context`, `--suite`, `-i`/`--interactive`, `--audit` |
 | **discover** | Connect and list schemas, tables, columns; output inventory | `-c`, `--connection`, `-o` (stdout or path), `--schema` (repeatable), `--tables` (repeatable), `--context` |
 | **run** | Run tests from an inventory; output results | `-c`, `--connection`, `--inventory` (path or `-` for stdin), `-o`, `--suite`, `--thresholds`, `--context`, `--dry-run`, `--audit` |
 | **report** | Build report from results, or re-output a saved report | `--results` (path or `-`), `--id` (saved assessment id), `-o` (markdown \| stdout \| json:path) |

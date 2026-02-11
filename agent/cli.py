@@ -16,28 +16,43 @@ from agent.pipeline import run_assess
 from agent.audit import AuditSink
 from agent.platform.registry import get_suite
 from agent.platform import get_platform
+from agent.manifest_loader import load_manifest
 
 
-def _resolve_assess_connections(args: argparse.Namespace, cfg: Config) -> list[str]:
-    """Build list of connections for assess from --connection (repeatable) and --connections-file."""
-    connections: list[str] = []
-    # From file (one connection string per line; blank and # lines ignored)
+def _default_manifest_path() -> Path:
+    """Default connections manifest (YAML)."""
+    return Path.home() / ".aird" / "connections.yaml"
+
+
+def _resolve_assess_targets(args: argparse.Namespace, cfg: Config) -> list[dict]:
+    """Build list of assessment targets from --connection (repeatable), --connections-file, or default manifest."""
+    targets: list[dict] = []
     path = getattr(args, "connections_file", None) or os.environ.get("AIRD_CONNECTIONS_FILE")
+    if not path:
+        default_manifest = _default_manifest_path()
+        if default_manifest.exists():
+            path = str(default_manifest)
     if path:
         p = Path(path)
         if p.exists():
-            for line in p.read_text().splitlines():
-                line = line.strip()
-                if line and not line.startswith("#"):
-                    connections.append(line)
-    # From -c / --connection (append list)
+            try:
+                targets = load_manifest(p)
+            except Exception as e:
+                raise UsageError(f"Failed to load manifest {path}: {e}") from e
+    # From -c / --connection (append; no per-connection scope)
     conn_arg = getattr(args, "connection", None)
     if conn_arg:
-        connections.extend(conn_arg if isinstance(conn_arg, list) else [conn_arg])
-    # Fallback: single connection from env or existing config
-    if not connections and cfg.connection:
-        connections = [cfg.connection]
-    return connections
+        for c in conn_arg if isinstance(conn_arg, list) else [conn_arg]:
+            if c.lower().strip().startswith("env:"):
+                var_name = c[4:].strip()
+                val = os.environ.get(var_name, "").strip()
+                if val:
+                    targets.append({"connection": val})
+            else:
+                targets.append({"connection": c})
+    if not targets and cfg.connection:
+        targets = [{"connection": cfg.connection}]
+    return targets
 
 
 def _config_from_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> Config:
@@ -72,8 +87,8 @@ def _config_from_args(parser: argparse.ArgumentParser, args: argparse.Namespace)
         diff_right=getattr(args, "right", None) or (args.right_id if hasattr(args, "right_id") else None),
     )
     if getattr(args, "command", None) == "assess":
-        connections = _resolve_assess_connections(args, cfg)
-        cfg = cfg.with_args(connections=connections)
+        targets = _resolve_assess_targets(args, cfg)
+        cfg = cfg.with_args(assessment_targets=targets)
     return cfg
 
 
