@@ -11,10 +11,7 @@ try:
     import agent.platform.snowflake_adapter  # noqa: F401 — optional: pip install aird-agent[snowflake]
 except ImportError:
     pass
-import agent.suites.clean_duckdb  # noqa: F401 — "common" for DuckDB
-import agent.suites.clean_sqlite  # noqa: F401 — "common_sqlite" for SQLite
-import agent.suites.clean_snowflake  # noqa: F401 — "common_snowflake" for Snowflake (Clean)
-import agent.suites.contextual_snowflake  # noqa: F401 — appends Contextual tests to "common_snowflake"
+import agent.suites  # noqa: F401 — auto-discovers YAML suite definitions
 
 __all__ = [
     "get_platform",

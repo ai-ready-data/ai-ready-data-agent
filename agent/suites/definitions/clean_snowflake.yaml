@@ -1,0 +1,57 @@
+# Clean factor suite for Snowflake — migrated from clean_snowflake.py
+# Snowflake-native SQL: COUNT_IF, TRY_CAST, quoted identifiers
+# Requirement keys match agent/requirements_registry.yaml
+suite_name: common_snowflake
+platform: snowflake
+
+tests:
+  - id: clean_table_count
+    factor: clean
+    requirement: table_discovery
+    query: >-
+      SELECT COUNT(*) AS cnt FROM information_schema.tables
+      WHERE UPPER(table_schema) NOT IN ('INFORMATION_SCHEMA', 'PG_CATALOG')
+    target_type: platform
+
+  - id: null_rate
+    factor: clean
+    requirement: null_rate
+    query_template: >-
+      SELECT COUNT_IF({column_q} IS NULL) * 1.0 / NULLIF(COUNT(*), 0) AS v
+      FROM {schema_q}.{table_q}
+    target_type: column
+
+  - id: duplicate_rate
+    factor: clean
+    requirement: duplicate_rate
+    query_template: >-
+      WITH total AS (SELECT COUNT(*) AS cnt FROM {schema_q}.{table_q}),
+      distinct_cnt AS (SELECT COUNT(*) AS cnt FROM (SELECT DISTINCT * FROM {schema_q}.{table_q}))
+      SELECT 1.0 - distinct_cnt.cnt::FLOAT / NULLIF(total.cnt::FLOAT, 0) AS v
+      FROM total, distinct_cnt
+    target_type: table
+
+  - id: zero_negative_rate
+    factor: clean
+    requirement: zero_negative_rate
+    query_template: >-
+      SELECT COUNT_IF({column_q} <= 0) * 1.0 / NULLIF(COUNT(*), 0) AS v
+      FROM {schema_q}.{table_q}
+    target_type: column
+
+  - id: type_inconsistency_rate
+    factor: clean
+    requirement: type_inconsistency_rate
+    query_template: >-
+      SELECT COUNT_IF({column_q} IS NOT NULL AND TRY_CAST({column_q} AS DOUBLE) IS NULL) * 1.0 / NULLIF(COUNT(*), 0) AS v
+      FROM {schema_q}.{table_q}
+    target_type: column
+
+  - id: format_inconsistency_rate
+    factor: clean
+    requirement: format_inconsistency_rate
+    query_template: >-
+      SELECT COUNT_IF({column_q} IS NOT NULL AND TRY_CAST({column_q} AS DATE) IS NULL) * 1.0 / NULLIF(COUNT(*), 0) AS v
+      FROM {schema_q}.{table_q}
+    target_type: column
+

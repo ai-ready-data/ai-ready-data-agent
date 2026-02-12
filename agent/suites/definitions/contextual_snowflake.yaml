@@ -1,0 +1,71 @@
+# Contextual factor suite for Snowflake — migrated from contextual_snowflake.py
+# Appends to common_snowflake suite (Clean + Contextual)
+# Requirement keys match agent/requirements_registry.yaml
+suite_name: common_snowflake
+platform: snowflake
+
+tests:
+  - id: primary_key_defined
+    factor: contextual
+    requirement: primary_key_defined
+    query: >-
+      SELECT COUNT(DISTINCT pk.table_name) * 1.0 / NULLIF(COUNT(DISTINCT t.table_name), 0) AS v
+      FROM information_schema.tables t
+      LEFT JOIN information_schema.table_constraints pk
+        ON t.table_schema = pk.table_schema
+        AND t.table_name = pk.table_name
+        AND pk.constraint_type = 'PRIMARY KEY'
+      WHERE UPPER(t.table_schema) NOT IN ('INFORMATION_SCHEMA', 'PG_CATALOG')
+        AND t.table_type = 'BASE TABLE'
+    target_type: platform
+
+  - id: semantic_model_coverage
+    factor: contextual
+    requirement: semantic_model_coverage
+    query: >-
+      SELECT COALESCE(
+        (SELECT COUNT(*) FROM information_schema.semantic_views), 0
+      ) * 1.0 / NULLIF(
+        (SELECT COUNT(*) FROM information_schema.tables
+         WHERE UPPER(table_schema) NOT IN ('INFORMATION_SCHEMA', 'PG_CATALOG')
+         AND table_type = 'BASE TABLE'), 0
+      ) AS v
+    target_type: platform
+
+  - id: foreign_key_coverage
+    factor: contextual
+    requirement: foreign_key_coverage
+    query: >-
+      SELECT COUNT(DISTINCT fk.table_name) * 1.0 / NULLIF(COUNT(DISTINCT t.table_name), 0) AS v
+      FROM information_schema.tables t
+      LEFT JOIN information_schema.table_constraints fk
+        ON t.table_schema = fk.table_schema
+        AND t.table_name = fk.table_name
+        AND fk.constraint_type = 'FOREIGN KEY'
+      WHERE UPPER(t.table_schema) NOT IN ('INFORMATION_SCHEMA', 'PG_CATALOG')
+        AND t.table_type = 'BASE TABLE'
+    target_type: platform
+
+  - id: temporal_scope_present
+    factor: contextual
+    requirement: temporal_scope_present
+    query: >-
+      SELECT COUNT(DISTINCT tc.table_name) * 1.0 / NULLIF(COUNT(DISTINCT t.table_name), 0) AS v
+      FROM information_schema.tables t
+      LEFT JOIN information_schema.columns tc
+        ON t.table_schema = tc.table_schema
+        AND t.table_name = tc.table_name
+        AND (
+          UPPER(tc.data_type) IN ('DATE', 'DATETIME', 'TIMESTAMP',
+            'TIMESTAMP_LTZ', 'TIMESTAMP_NTZ', 'TIMESTAMP_TZ')
+          OR LOWER(tc.column_name) LIKE '%created_at%'
+          OR LOWER(tc.column_name) LIKE '%updated_at%'
+          OR LOWER(tc.column_name) LIKE '%valid_from%'
+          OR LOWER(tc.column_name) LIKE '%valid_to%'
+          OR LOWER(tc.column_name) LIKE '%effective_date%'
+          OR LOWER(tc.column_name) LIKE '%expiry_date%'
+        )
+      WHERE UPPER(t.table_schema) NOT IN ('INFORMATION_SCHEMA', 'PG_CATALOG')
+        AND t.table_type = 'BASE TABLE'
+    target_type: platform
+
