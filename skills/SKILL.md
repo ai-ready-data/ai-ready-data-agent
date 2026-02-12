@@ -33,12 +33,13 @@ DuckDB is included. For Snowflake: `pip install -e ".[snowflake]"`.
 | User Situation | Route |
 |----------------|-------|
 | First-time assessment, no connection yet | Start at Step 1 |
+| First-time user, wants guided setup | Recommend `aird init` or start at [interview/SKILL.md](interview/SKILL.md) |
 | Has connection string, wants full assessment | Skip to [connect/SKILL.md](connect/SKILL.md) |
 | Already connected, wants to re-run | Skip to [assess/SKILL.md](assess/SKILL.md) |
 | Has a report, wants to understand results | Skip to [interpret/SKILL.md](interpret/SKILL.md) |
 | Has results, wants to fix issues | Skip to [remediate/SKILL.md](remediate/SKILL.md) |
 | Wants to compare against a previous run | Skip to [compare/SKILL.md](compare/SKILL.md) |
-| Wants to understand their data estate first | Skip to [interview/SKILL.md](interview/SKILL.md) |
+| Wants to compare multiple datasets | Use `aird benchmark` or skip to [compare/SKILL.md](compare/SKILL.md) |
 
 ## Workflow
 
@@ -46,17 +47,17 @@ DuckDB is included. For Snowflake: `pip install -e ".[snowflake]"`.
 
 **Load** [interview/SKILL.md](interview/SKILL.md) (Phase 1 only)
 
-Ask **what platforms they have access to** (DuckDB, SQLite, Snowflake, …). Optionally add each to the [connections manifest](references/connections-manifest.md) so the manifest is the source of truth for their estate (single-DB users can skip the manifest and use `-c` only). Then ask about goals, workload (L1/L2/L3), and scope.
+Ask **what platform they're using** (DuckDB, SQLite, Snowflake, …). For first-time users, recommend `aird init` for interactive guided setup. Then ask about goals, workload (L1/L2/L3), and scope.
 
 **STOP:** Wait for user responses before proceeding.
 
-### Step 2: Connect and Add to Manifest
+### Step 2: Connect
 
 **Load** [connect/SKILL.md](connect/SKILL.md)
 
-For each platform the user named, establish a connection string (or env) and the right driver. **Add each connection to the connections manifest** (create or append at `~/.aird/connections.yaml` or `AIRD_CONNECTIONS_FILE`; manifest is YAML or JSON). Use `env:VAR_NAME` for any connection that contains secrets. See [references/platforms.md](references/platforms.md) and [references/connections-manifest.md](references/connections-manifest.md).
+For each platform the user named, establish a connection string (or env var) and the right driver. See [references/platforms.md](references/platforms.md). First-time users can also use `aird init` to set up their connection interactively.
 
-**STOP:** Confirm connection(s) established and manifest updated.
+**STOP:** Confirm connection established.
 
 ### Step 3: Discover and Confirm Scope
 
@@ -70,7 +71,11 @@ Enumerate schemas, tables, and columns. Then **Load** [interview/SKILL.md](inter
 
 **Load** [assess/SKILL.md](assess/SKILL.md)
 
-Run the assessment CLI (assess or composable discover → run → report → save). Score results at L1/L2/L3.
+Run the assessment CLI (assess or composable discover → run → report → save). Score results at L1/L2/L3. Options include:
+
+- `aird assess -i` for interactive guided flow
+- `--factor` to assess a single factor (e.g. `--factor clean`)
+- `--dry-run` to preview which tests would run without executing them
 
 **STOP:** Report execution completion.
 
@@ -94,7 +99,11 @@ For each failure the user wants to fix, generate specific suggestions using fact
 
 **Load** [compare/SKILL.md](compare/SKILL.md)
 
-Results are saved to history when not using `--no-save`. Use `aird history` and `aird diff` to compare runs. On re-assess, use `--compare` to show progress.
+Results are saved to history when not using `--no-save`. Use `aird history` and `aird diff` to compare runs. On re-assess, use `--compare` to show progress. Additional comparison tools:
+
+- `aird compare` — side-by-side table comparison from the most recent assessment
+- `aird rerun` — re-run only failed tests and show the delta
+- `aird benchmark -c conn1 -c conn2` — N-way dataset comparison across multiple connections
 
 ## Stopping Points
 
