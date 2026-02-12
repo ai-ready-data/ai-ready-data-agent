@@ -1,6 +1,9 @@
 """Test runner: generate tests from inventory, execute read-only, produce results. Optional dry_run and audit."""
 
+import logging
 from typing import Any, List, Optional
+
+logger = logging.getLogger(__name__)
 
 from agent.platform import get_platform
 from agent.platform.executor import execute_readonly
@@ -148,6 +151,8 @@ def run_tests(
                 "l3_pass": passes(req, mv, "l3", thresholds),
             })
         except Exception as e:
+            # Fallback: record test as failed with error; does not abort the run
+            logger.warning("Test %s failed: %s", t.get("id"), e)
             results_list.append({
                 "test_id": t.get("id"),
                 "factor": t.get("factor"),

@@ -11,3 +11,11 @@ class UsageError(AIRDError):
 
 class AssessmentRuntimeError(AIRDError):
     """Connection, execution, or other runtime failure. Exit code 1."""
+
+
+class DiscoveryError(AIRDError):
+    """Failure during schema/table/column discovery."""
+
+
+class ConfigurationError(AIRDError):
+    """Failure loading configuration or context files."""

@@ -1,7 +1,10 @@
 """Assess pipeline: discover → run → report → [save] → output. Optional compare and interactive."""
 
+import logging
 from pathlib import Path
 from typing import Optional
+
+logger = logging.getLogger(__name__)
 
 from agent.config import Config
 from agent.discovery import discover
@@ -19,11 +22,13 @@ def _load_context(path: Optional[Path]) -> Optional[dict]:
     """Load optional context YAML. Returns dict with keys e.g. schemas, tables, target_level; or None."""
     if not path or not path.exists():
         return None
+    # Fallback: return None if context file is malformed or unreadable
     try:
         import yaml
         raw = yaml.safe_load(path.read_text())
         return raw if isinstance(raw, dict) else None
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to load context from %s: %s", path, e)
         return None
 
 
@@ -31,13 +36,15 @@ def _load_survey_answers(path: Optional[Path]) -> dict:
     """Load optional survey answers YAML. Returns dict mapping requirement or 'factor.requirement' to answer string."""
     if not path or not path.exists():
         return {}
+    # Fallback: return empty dict if survey answers file is malformed or unreadable
     try:
         import yaml
         raw = yaml.safe_load(path.read_text())
         if not isinstance(raw, dict):
             return {}
         return {str(k): str(v) for k, v in raw.items()}
-    except Exception:
+    except Exception as e:
+        logger.warning("Failed to load survey answers from %s: %s", path, e)
         return {}
 
 
