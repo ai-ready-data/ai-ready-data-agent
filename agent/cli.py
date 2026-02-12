@@ -91,10 +91,71 @@ def _write_stdout(data: str) -> None:
         sys.stdout.write("\n")
 
 
+def _format_dry_run_preview(report: dict) -> str:
+    """Format dry-run preview as a human-readable table."""
+    connection = report.get("connection", "unknown")
+    preview = report.get("preview", [])
+    test_count = report.get("test_count", 0)
+
+    lines: list[str] = []
+    lines.append(f"Dry-run preview for: {connection}")
+    lines.append("=" * max(40, len(lines[0])))
+    lines.append("")
+
+    # Group by factor
+    factor_data: dict[str, dict[str, set]] = {}
+    for t in preview:
+        factor = t.get("factor") or "unknown"
+        req = t.get("requirement") or "unknown"
+        if factor not in factor_data:
+            factor_data[factor] = {"requirements": set(), "count": 0}
+        factor_data[factor]["requirements"].add(req)
+        factor_data[factor]["count"] = factor_data[factor].get("count", 0) + 1
+
+    # Compute column widths
+    factor_col = max(len("Factor"), max((len(f) for f in factor_data), default=6))
+    tests_col = max(len("Tests"), len(str(test_count)))
+
+    header = f"{'Factor':<{factor_col}}  {'Tests':>{tests_col}}   Requirement Keys"
+    sep = f"{'─' * factor_col}  {'─' * tests_col}   {'─' * 16}"
+    lines.append(header)
+    lines.append(sep)
+
+    for factor in sorted(factor_data):
+        info = factor_data[factor]
+        count = info["count"]
+        reqs = ", ".join(sorted(info["requirements"]))
+        lines.append(f"{factor:<{factor_col}}  {count:>{tests_col}}   {reqs}")
+
+    lines.append(sep)
+    lines.append(f"{'Total':<{factor_col}}  {test_count:>{tests_col}}")
+    lines.append("")
+
+    # Sample tests (up to 5)
+    if preview:
+        lines.append("Sample tests:")
+        for t in preview[:5]:
+            tid = t.get("id", "?")
+            factor = t.get("factor", "?")
+            req = t.get("requirement", "?")
+            target = t.get("target_type", "?")
+            lines.append(f"  • {tid} ({factor}/{req}) — {target}")
+        if len(preview) > 5:
+            lines.append(f"  ... and {len(preview) - 5} more")
+        lines.append("")
+
+    lines.append("No queries will be executed. Run without --dry-run to assess.")
+    return "\n".join(lines)
+
+
 def cmd_assess(cfg: Config) -> None:
     report = run_assess(cfg)
     if report.get("dry_run"):
-        _write_stdout(json.dumps(report))
+        out = cfg.output
+        if out == "stdout" or out.startswith("json:"):
+            _write_stdout(json.dumps(report))
+        else:
+            _write_stdout(_format_dry_run_preview(report))
         return
     out = cfg.output
     if out == "stdout":
@@ -288,7 +349,17 @@ def main() -> None:
     # suites
     subparsers.add_parser("suites", help="List test suites")
 
+    # init
+    subparsers.add_parser("init", help="Interactive setup wizard for first-time users")
+
     args = parser.parse_args()
+
+    # init is handled before config resolution (it collects config interactively)
+    if args.command == "init":
+        from agent.commands.init import run_init
+        run_init()
+        return
+
     cfg = _config_from_args(parser, args)
 
     try:
