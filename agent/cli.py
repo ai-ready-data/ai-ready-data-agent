@@ -24,46 +24,35 @@ def _default_manifest_path() -> Path:
     return Path.home() / ".aird" / "connections.yaml"
 
 
-def _resolve_assess_targets(args: argparse.Namespace, cfg: Config) -> list[dict]:
-    """Build list of assessment targets from --connection (repeatable), --connections-file, or default manifest."""
-    targets: list[dict] = []
-    path = getattr(args, "connections_file", None) or os.environ.get("AIRD_CONNECTIONS_FILE")
-    if not path:
-        default_manifest = _default_manifest_path()
-        if default_manifest.exists():
-            path = str(default_manifest)
-    if path:
-        p = Path(path)
-        if p.exists():
-            try:
-                targets = load_manifest(p)
-            except Exception as e:
-                raise UsageError(f"Failed to load manifest {path}: {e}") from e
-    # From -c / --connection (append; no per-connection scope)
+def _resolve_connection(args: argparse.Namespace, cfg: Config):
+    """Resolve single connection from -c arg, env, or default manifest (first entry)."""
     conn_arg = getattr(args, "connection", None)
     if conn_arg:
-        for c in conn_arg if isinstance(conn_arg, list) else [conn_arg]:
-            if c.lower().strip().startswith("env:"):
-                var_name = c[4:].strip()
-                val = os.environ.get(var_name, "").strip()
-                if val:
-                    targets.append({"connection": val})
-            else:
-                targets.append({"connection": c})
-    if not targets and cfg.connection:
-        targets = [{"connection": cfg.connection}]
-    return targets
+        if conn_arg.lower().strip().startswith("env:"):
+            var_name = conn_arg[4:].strip()
+            return os.environ.get(var_name, "").strip() or None
+        return conn_arg
+    if cfg.connection:
+        return cfg.connection
+    # Fall back to first entry in default manifest
+    manifest_path = _default_manifest_path()
+    if manifest_path.exists():
+        try:
+            targets = load_manifest(manifest_path)
+            if targets:
+                return targets[0].get("connection")
+        except Exception:
+            pass
+    return None
 
 
 def _config_from_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> Config:
     cfg = Config.from_env()
-    # For assess, connection may be a list (append); normalize to single for discover/run
-    connection_arg = getattr(args, "connection", None)
-    single_connection = None
-    if connection_arg is not None:
-        single_connection = connection_arg[0] if isinstance(connection_arg, list) and connection_arg else connection_arg
+    connection_arg = getattr(args, "connection", None) or cfg.connection
+    if getattr(args, "command", None) == "assess" and not connection_arg:
+        connection_arg = _resolve_connection(args, cfg)
     cfg = cfg.with_args(
-        connection=single_connection or cfg.connection,
+        connection=connection_arg or cfg.connection,
         schemas=getattr(args, "schema", None) or cfg.schemas,
         tables=getattr(args, "tables", None) or cfg.tables,
         context_path=Path(args.context) if getattr(args, "context", None) else cfg.context_path,
@@ -89,9 +78,6 @@ def _config_from_args(parser: argparse.ArgumentParser, args: argparse.Namespace)
         diff_left=getattr(args, "left", None) or (args.left_id if hasattr(args, "left_id") else None),
         diff_right=getattr(args, "right", None) or (args.right_id if hasattr(args, "right_id") else None),
     )
-    if getattr(args, "command", None) == "assess":
-        targets = _resolve_assess_targets(args, cfg)
-        cfg = cfg.with_args(assessment_targets=targets)
     return cfg
 
 
@@ -230,8 +216,7 @@ def main() -> None:
 
     # assess
     p_assess = subparsers.add_parser("assess", help="Full pipeline: discover → run → report → save")
-    p_assess.add_argument("-c", "--connection", action="append", default=None, dest="connection")
-    p_assess.add_argument("--connections-file", default=None, help="Path to file with one connection string per line")
+    p_assess.add_argument("-c", "--connection", default=None, dest="connection")
     p_assess.add_argument("-s", "--schema", action="append", default=[], dest="schema")
     p_assess.add_argument("-t", "--tables", action="append", default=[], dest="tables")
     p_assess.add_argument("--suite", default="auto")

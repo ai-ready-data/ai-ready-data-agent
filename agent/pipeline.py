@@ -8,7 +8,7 @@ from agent.discovery import discover
 from agent.platform.registry import get_default_suite
 from agent.questions_loader import get_suite_questions
 from agent.run import run_tests
-from agent.report import build_report, build_estate_report, report_to_markdown
+from agent.report import build_report, report_to_markdown
 from agent.survey import run_survey
 from agent import storage
 from agent.audit import AuditSink
@@ -43,30 +43,14 @@ def _load_survey_answers(path: Optional[Path]) -> dict:
 
 def run_assess(config: Config) -> dict:
     """Run full pipeline. Returns report dict; caller handles output and save."""
-    targets = config.get_targets()
-    if not targets:
-        raise ValueError("connection(s) required for assess (use -c, --connections-file, or AIRD_CONNECTION_STRING)")
+    if not config.connection:
+        raise ValueError("connection required for assess (use -c or AIRD_CONNECTION_STRING)")
 
+    connection = config.connection
     context = _load_context(config.context_path)
     thresholds = load_thresholds(config.thresholds_path)
-
-    if len(targets) == 1:
-        return _run_assess_single(config, targets[0], context=context, thresholds=thresholds)
-    return _run_assess_estate(config, targets, context=context, thresholds=thresholds)
-
-
-def _run_assess_single(
-    config: Config,
-    target: dict,
-    *,
-    context: Optional[dict] = None,
-    thresholds: Optional[dict] = None,
-) -> dict:
-    """Single-target assess: discover → run → report → [save] → return."""
-    connection = target["connection"]
-    # Scope: per-target > context file > global config
-    schemas = target.get("schemas") or (context or {}).get("schemas") or config.schemas or None
-    tables = target.get("tables") or (context or {}).get("tables") or config.tables or None
+    schemas = (context or {}).get("schemas") or config.schemas or None
+    tables = (context or {}).get("tables") or config.tables or None
     audit = AuditSink(config.db_path, config.audit)
 
     inv = discover(
@@ -130,95 +114,6 @@ def _run_assess_single(
             conn.close()
 
     return report
-
-
-def _run_assess_estate(
-    config: Config,
-    targets: list[dict],
-    *,
-    context: Optional[dict] = None,
-    thresholds: Optional[dict] = None,
-) -> dict:
-    """Estate assess: for each target discover → run, then build estate report and save."""
-    platforms: list[dict] = []
-    dry_run_previews: list[dict] = []
-    for target in targets:
-        connection = target["connection"]
-        fp = _fingerprint(connection)
-        schemas = target.get("schemas") or (context or {}).get("schemas") or config.schemas or None
-        tables = target.get("tables") or (context or {}).get("tables") or config.tables or None
-        try:
-            inv = discover(
-                connection,
-                schemas=schemas,
-                tables=tables,
-            )
-        except Exception as e:
-            platforms.append({
-                "connection_fingerprint": fp,
-                "summary": {},
-                "results": [],
-                "inventory": None,
-                "error": str(e),
-            })
-            continue
-        try:
-            results = run_tests(
-                connection,
-                inv,
-                suite_name=config.suite,
-                dry_run=config.dry_run,
-                audit=None,  # estate: no per-connection audit for now
-                thresholds=thresholds,
-            )
-        except Exception as e:
-            platforms.append({
-                "connection_fingerprint": fp,
-                "summary": {},
-                "results": [],
-                "inventory": inv,
-                "error": str(e),
-            })
-            continue
-        if config.dry_run:
-            dry_run_previews.append({
-                "connection_fingerprint": fp,
-                "test_count": results.get("test_count", 0),
-                "preview": results.get("preview", []),
-            })
-            continue
-        report = build_report(results, inventory=inv, connection_fingerprint=fp)
-        platforms.append({
-            "connection_fingerprint": fp,
-            "summary": report["summary"],
-            "factor_summary": report["factor_summary"],
-            "results": report["results"],
-            "inventory": inv,
-        })
-    if config.dry_run:
-        total = sum(p["test_count"] for p in dry_run_previews)
-        return {"dry_run": True, "preview": dry_run_previews, "test_count": total}
-    target_workload = config.target_workload or (context or {}).get("target_level") or None
-    estate_report = build_estate_report(platforms, target_workload=target_workload)
-    if context:
-        estate_report["user_context"] = context
-    if not config.no_save:
-        conn = storage.get_connection(config.db_path)
-        try:
-            aid = storage.save_report(conn, estate_report)
-            estate_report["assessment_id"] = aid
-        finally:
-            conn.close()
-    if config.compare and not config.no_save and estate_report.get("assessment_id"):
-        conn = storage.get_connection(config.db_path)
-        try:
-            previous = storage.list_assessments(conn, connection_filter=None, limit=2)
-            ids = [a["id"] for a in previous if a["id"] != estate_report.get("assessment_id")]
-            if ids:
-                estate_report["_diff_previous_id"] = ids[0]
-        finally:
-            conn.close()
-    return estate_report
 
 
 def _fingerprint(connection: str) -> str:
