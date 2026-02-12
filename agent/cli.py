@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 from agent.config import Config
+from agent.constants import OutputFormat
 from agent.exceptions import UsageError, AssessmentRuntimeError
 from agent import storage
 from agent.discovery import discover
@@ -40,12 +41,13 @@ def _resolve_connection(args: argparse.Namespace, cfg: Config):
     # Fall back to first entry in default manifest
     manifest_path = _default_manifest_path()
     if manifest_path.exists():
+        # Fallback: silently skip manifest if it cannot be loaded (soft default)
         try:
             targets = load_manifest(manifest_path)
             if targets:
                 return targets[0].get("connection")
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to load manifest: %s", e)
     return None
 
 
@@ -92,6 +94,31 @@ def _write_stdout(data: str) -> None:
     sys.stdout.write(data)
     if not data.endswith("\n"):
         sys.stdout.write("\n")
+
+
+def _write_output(data: dict, output_format: str, markdown_fn=None, json_indent=None) -> None:
+    """Route *data* to the correct output sink based on *output_format*.
+
+    Handles four cases:
+    - ``stdout`` / ``json``: JSON dump to stdout
+    - ``markdown``: call *markdown_fn* (falls back to JSON when *markdown_fn* is None)
+    - ``json:<path>``: write pretty-printed JSON to the given file path
+    - anything else: falls back to markdown rendering (or JSON if no renderer)
+
+    *json_indent* controls indentation for JSON written to stdout (default ``None``
+    for compact output).  File output always uses ``indent=2``.
+    """
+    if output_format == OutputFormat.STDOUT or output_format == OutputFormat.JSON:
+        _write_stdout(json.dumps(data, indent=json_indent))
+    elif OutputFormat.is_json_path(output_format):
+        path = OutputFormat.parse_json_path(output_format)
+        Path(path).write_text(json.dumps(data, indent=2))
+    elif markdown_fn is not None:
+        _write_stdout(markdown_fn(data))
+    else:
+        # Fallback: JSON dump when no markdown renderer is provided
+        _write_stdout(json.dumps(data, indent=json_indent))
+
 
 
 def _format_dry_run_preview(report: dict) -> str:
@@ -155,21 +182,12 @@ def cmd_assess(cfg: Config) -> None:
     report = run_assess(cfg)
     if report.get("dry_run"):
         out = cfg.output
-        if out == "stdout" or out.startswith("json:"):
+        if out == OutputFormat.STDOUT or OutputFormat.is_json_path(out):
             _write_stdout(json.dumps(report))
         else:
             _write_stdout(_format_dry_run_preview(report))
         return
-    out = cfg.output
-    if out == "stdout":
-        _write_stdout(json.dumps(report))
-    elif out == "markdown":
-        _write_stdout(report_to_markdown(report))
-    elif out.startswith("json:"):
-        path = out.split(":", 1)[1]
-        Path(path).write_text(json.dumps(report, indent=2))
-    else:
-        _write_stdout(report_to_markdown(report))
+    _write_output(report, cfg.output, markdown_fn=report_to_markdown)
     if report.get("_diff_previous_id"):
         _write_stdout(f"\n(Diff vs previous: {report['_diff_previous_id']})")
 
@@ -178,10 +196,15 @@ def cmd_discover(cfg: Config) -> None:
     if not cfg.connection:
         raise UsageError("--connection or AIRD_CONNECTION_STRING required")
     inv = discover(cfg.connection, schemas=cfg.schemas or None, tables=cfg.tables or None)
-    if cfg.output == "stdout" or not cfg.output or cfg.output == "-":
+    out = cfg.output
+    if out == OutputFormat.STDOUT or not out or out == "-":
         _write_stdout(json.dumps(inv, indent=2))
+    elif OutputFormat.is_json_path(out):
+        path = OutputFormat.parse_json_path(out)
+        Path(path).write_text(json.dumps(inv, indent=2))
     else:
-        Path(cfg.output).write_text(json.dumps(inv, indent=2))
+        # Treat any other value (e.g. a bare file path) as a write target
+        Path(out).write_text(json.dumps(inv, indent=2))
 
 
 def cmd_run(cfg: Config) -> None:
@@ -208,15 +231,7 @@ def cmd_report(cfg: Config) -> None:
         results_raw = _read_stdin() if cfg.results_path == "-" else Path(cfg.results_path).read_text()
         results = json.loads(results_raw)
         report = build_report(results, connection_fingerprint="")
-    out = cfg.output
-    if out == "stdout" or out == "json":
-        _write_stdout(json.dumps(report, indent=2))
-    elif out == "markdown":
-        _write_stdout(report_to_markdown(report))
-    elif out.startswith("json:"):
-        Path(out.split(":", 1)[1]).write_text(json.dumps(report, indent=2))
-    else:
-        _write_stdout(report_to_markdown(report))
+    _write_output(report, cfg.output, markdown_fn=report_to_markdown, json_indent=2)
 
 
 def cmd_save(cfg: Config) -> None:

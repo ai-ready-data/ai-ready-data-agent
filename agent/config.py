@@ -5,6 +5,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional
 
+from agent.constants import OutputFormat
+
 
 def _env(key: str, default: Optional[str] = None) -> Optional[str]:
     return os.environ.get(key, default)
@@ -36,7 +38,7 @@ class Config:
     # Pipeline
     suite: str = "auto"
     thresholds_path: Optional[Path] = None
-    output: str = "markdown"  # stdout | markdown | json:<path>
+    output: str = OutputFormat.MARKDOWN  # stdout | markdown | json:<path>
     no_save: bool = False
     compare: bool = False
     dry_run: bool = False
@@ -73,7 +75,7 @@ class Config:
             connection=_env("AIRD_CONNECTION_STRING"),
             context_path=Path(p) if (p := _env("AIRD_CONTEXT")) else None,
             thresholds_path=Path(p) if (p := _env("AIRD_THRESHOLDS")) else None,
-            output=_env("AIRD_OUTPUT") or "markdown",
+            output=_env("AIRD_OUTPUT") or OutputFormat.MARKDOWN,
             log_level=_env("AIRD_LOG_LEVEL") or "info",
             audit=_env_bool("AIRD_AUDIT"),
             db_path=Path(p) if (p := _env("AIRD_DB_PATH")) else default_db_path(),

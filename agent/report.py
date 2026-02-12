@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from agent import storage
+from agent.constants import WorkloadLevel
 
 
 # ---------------------------------------------------------------------------
@@ -97,20 +98,21 @@ def build_report(
 # Markdown rendering
 # ---------------------------------------------------------------------------
 
+# Build label lookups from WorkloadLevel enum.  The dict keeps the same
+# shape/values as before so existing callers are unaffected.
+# Short keys ("l1") use the canonical label; descriptive keys ("analytics")
+# use the enum member name for the human-readable part.
 _WORKLOAD_LABELS = {
-    "l1": "L1 (Analytics)",
-    "l2": "L2 (RAG)",
-    "l3": "L3 (Training)",
-    "analytics": "Analytics (L1)",
-    "rag": "RAG (L2)",
-    "training": "Training (L3)",
+    wl.short: wl.label for wl in WorkloadLevel
 }
+_WORKLOAD_LABELS.update({
+    wl.value: f"{wl.name.capitalize() if len(wl.name) > 3 else wl.name} ({wl.short.upper()})"
+    for wl in WorkloadLevel
+})
 
-# Map descriptive workload names to level keys
+# Map descriptive workload names to level keys (e.g. "rag" -> "l2")
 _WORKLOAD_TO_LEVEL = {
-    "analytics": "l1",
-    "rag": "l2",
-    "training": "l3",
+    wl.value: wl.short for wl in WorkloadLevel
 }
 
 
