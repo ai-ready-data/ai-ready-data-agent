@@ -40,21 +40,11 @@ Or output JSON for parsing:
 aird assess -c "<connection>" -o json:report.json
 ```
 
-### Option A2: Data estate (multiple connections)
-
-To assess multiple databases in one run, pass multiple connections. The report will have per-connection sections and an aggregate summary:
+For a guided interactive experience (scope selection, progress bars, colored output):
 
 ```bash
-aird assess -c "duckdb://db1.duckdb" -c "duckdb://db2.duckdb" -o markdown
+aird assess -c "<connection>" -i
 ```
-
-Or use a file (one connection string per line; `#` and blank lines ignored):
-
-```bash
-aird assess --connections-file connections.yaml -o markdown
-```
-
-Env: `AIRD_CONNECTIONS_FILE` can point to the file path.
 
 If the command fails, report the error to the user and do not proceed; suggest checking connection string, driver, or network.
 
@@ -62,9 +52,15 @@ If the command fails, report the error to the user and do not proceed; suggest c
 - `--no-save` — Do not persist report to history
 - `--compare` — After run, output diff vs previous assessment for same connection
 - `--dry-run` — Stop after generating tests; do not execute
-- `--context <path>` — Path to context YAML (when supported)
-- `--suite common` — Force suite (default is auto from connection)
-- `--interactive` / `-i` — Emit structured interview questions for agent use
+- `--context <path>` — Path to context YAML
+- `--suite <name>` — Force suite (default is auto from connection)
+- `-i` / `--interactive` — Guided interactive assessment flow (discover → select scope → preview → run → results)
+- `--audit` — Enable audit logging
+- `--factor <factor>` — Filter assessment to a single factor (e.g., `clean`, `contextual`)
+- `--survey` — Include survey questions in assessment
+- `--survey-answers <path>` — Path to pre-filled survey answers YAML
+- `--workload {analytics,rag,training}` — Set target workload level
+- `--thresholds <path>` — Custom thresholds file
 
 **STOP:** Confirm the command completed and report is available.
 
@@ -89,6 +85,16 @@ To output markdown for the user, also run: `aird report --results results.json -
 - Optionally: diff vs previous run (if `--compare` was used)
 - Ready to proceed to [interpret/SKILL.md](../interpret/SKILL.md)
 
+## Related Commands
+
+- `aird compare` — Compare results for two tables side-by-side from the most recent assessment
+- `aird rerun` — Re-run only failed tests from the most recent assessment, show improvement delta
+- `aird benchmark -c conn1 -c conn2` — Compare N datasets side-by-side (repeatable `-c`, at least 2 required)
+
 ## After the user applies fixes
 
 When the user has applied remediation and wants to re-assess: run assess again with `--compare` (and optionally the same `--context` path) to show progress. Example: `aird assess -c "<connection>" --compare -o markdown`.
+
+For a quicker alternative, use `aird rerun` to re-run only previously failed tests and show the improvement delta without re-running the full assessment.
+
+To compare specific tables within the same assessment, use `aird compare` for a side-by-side view.
