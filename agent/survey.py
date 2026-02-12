@@ -25,12 +25,14 @@ def run_survey(
     answers: Optional[Dict[str, str]] = None,
     *,
     questions_path: Optional[Any] = None,
+    interactive: bool = False,
 ) -> List[Dict[str, Any]]:
     """
     Run survey: for each question, look up answer (keyed by requirement or "factor.requirement"), apply rubric, produce one result row.
     questions: list from load_questions(); when None, load from default registry.
     answers: dict mapping requirement key (or "factor.requirement") to user answer string. Missing key => answer "—" and pass from rubric or True.
     questions_path: optional Path to YAML; used when questions is None.
+    interactive: when True and answers is empty, prompt the user interactively.
     Returns list of { factor, requirement, question_text, answer, l1_pass, l2_pass, l3_pass }.
     """
     if questions is None:
@@ -39,6 +41,11 @@ def run_survey(
         questions = load_questions(path)
     if not questions:
         return []
+    if interactive and not answers:
+        from agent.ui.console import is_interactive
+        if is_interactive():
+            from agent.ui.survey import interactive_survey
+            answers = interactive_survey(questions)
     answers = answers or {}
     results: List[Dict[str, Any]] = []
     for q in questions:
