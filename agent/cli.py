@@ -229,7 +229,23 @@ def _format_dry_run_preview(report: dict) -> str:
 
 
 def cmd_assess(cfg: Config) -> None:
-    report = run_assess(cfg)
+    # Show a Rich progress bar when running interactively
+    progress_callback = None
+    progress_ctx = None
+    if cfg.interactive:
+        from agent.ui.console import is_interactive
+
+        if is_interactive():
+            from agent.ui.progress import TestProgressBar
+
+            progress_ctx = TestProgressBar()
+
+    if progress_ctx is not None:
+        with progress_ctx as pb:
+            report = run_assess(cfg, progress_callback=pb.callback)
+    else:
+        report = run_assess(cfg)
+
     if report.get("dry_run"):
         out = cfg.output
         if out == OutputFormat.STDOUT or OutputFormat.is_json_path(out):
@@ -305,9 +321,26 @@ def cmd_history(cfg: Config) -> None:
         )
     finally:
         conn.close()
-    for a in items:
-        s = a.get("summary", {})
-        _write_stdout(f"{a['id']}\t{a['created_at']}\tL1:{s.get('l1_pct', 0)}%\tL2:{s.get('l2_pct', 0)}%\tL3:{s.get('l3_pct', 0)}%\t{a.get('connection_fingerprint', '')}")
+
+    if sys.stdout.isatty():
+        from agent.ui import print_table
+        headers = ["ID", "Date", "L1%", "L2%", "L3%", "Connection"]
+        rows = []
+        for a in items:
+            s = a.get("summary", {})
+            rows.append([
+                a["id"][:8],
+                a["created_at"],
+                f"{s.get('l1_pct', 0)}%",
+                f"{s.get('l2_pct', 0)}%",
+                f"{s.get('l3_pct', 0)}%",
+                a.get("connection_fingerprint", ""),
+            ])
+        print_table(headers, rows, title="Assessment History")
+    else:
+        for a in items:
+            s = a.get("summary", {})
+            _write_stdout(f"{a['id']}\t{a['created_at']}\tL1:{s.get('l1_pct', 0)}%\tL2:{s.get('l2_pct', 0)}%\tL3:{s.get('l3_pct', 0)}%\t{a.get('connection_fingerprint', '')}")
 
 
 def cmd_diff(cfg: Config) -> None:
@@ -325,8 +358,31 @@ def cmd_diff(cfg: Config) -> None:
         raise UsageError("diff requires two assessment ids or --left/--right paths")
     l_s = left.get("summary", {})
     r_s = right.get("summary", {})
-    _write_stdout(f"Left:  L1={l_s.get('l1_pct')}% L2={l_s.get('l2_pct')}% L3={l_s.get('l3_pct')}%")
-    _write_stdout(f"Right: L1={r_s.get('l1_pct')}% L2={r_s.get('l2_pct')}% L3={r_s.get('l3_pct')}%")
+
+    if sys.stdout.isatty():
+        from agent.ui import print_table
+
+        def _diff_cell(l_val, r_val):
+            """Return a styled string showing left→right with colour."""
+            l_v = l_val if l_val is not None else 0
+            r_v = r_val if r_val is not None else 0
+            if r_v > l_v:
+                return f"[pass]{l_v}% → {r_v}%[/pass]"
+            elif r_v < l_v:
+                return f"[fail]{l_v}% → {r_v}%[/fail]"
+            return f"[warn]{l_v}% → {r_v}%[/warn]"
+
+        headers = ["Level", "Left", "Right", "Change"]
+        rows = []
+        for level in ("l1_pct", "l2_pct", "l3_pct"):
+            label = level.replace("_pct", "").upper()
+            l_v = l_s.get(level, 0)
+            r_v = r_s.get(level, 0)
+            rows.append([label, f"{l_v}%", f"{r_v}%", _diff_cell(l_v, r_v)])
+        print_table(headers, rows, title="Assessment Diff")
+    else:
+        _write_stdout(f"Left:  L1={l_s.get('l1_pct')}% L2={l_s.get('l2_pct')}% L3={l_s.get('l3_pct')}%")
+        _write_stdout(f"Right: L1={r_s.get('l1_pct')}% L2={r_s.get('l2_pct')}% L3={r_s.get('l3_pct')}%")
 
 
 def cmd_suites(_cfg: Config) -> None:
@@ -335,14 +391,25 @@ def cmd_suites(_cfg: Config) -> None:
     from agent.suites.loader import get_suite_extends
     all_suites = get_all_suites()
     suite_extends = get_suite_extends()
-    for name in get_suite_names():
-        tests = all_suites[name]
-        count_str = f"{len(tests)} tests"
-        if name in suite_extends:
-            parents = ", ".join(suite_extends[name])
-            _write_stdout(f"{name}\t{count_str}  (extends: {parents})")
-        else:
-            _write_stdout(f"{name}\t{count_str}")
+
+    if sys.stdout.isatty():
+        from agent.ui import print_table
+        headers = ["Suite", "Tests", "Extends"]
+        rows = []
+        for name in get_suite_names():
+            tests = all_suites[name]
+            extends = ", ".join(suite_extends[name]) if name in suite_extends else ""
+            rows.append([name, len(tests), extends])
+        print_table(headers, rows, title="Test Suites")
+    else:
+        for name in get_suite_names():
+            tests = all_suites[name]
+            count_str = f"{len(tests)} tests"
+            if name in suite_extends:
+                parents = ", ".join(suite_extends[name])
+                _write_stdout(f"{name}\t{count_str}  (extends: {parents})")
+            else:
+                _write_stdout(f"{name}\t{count_str}")
 
 
 def main() -> None:
