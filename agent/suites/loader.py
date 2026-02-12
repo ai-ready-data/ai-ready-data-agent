@@ -163,6 +163,11 @@ def load_suite_file(file_path: Path) -> None:
     logger.debug("Loaded suite '%s' (%d tests) from %s", suite_name, len(merged_tests), file_path.name)
 
 
+def get_suite_extends() -> Dict[str, List[str]]:
+    """Return a copy of the suite-extends mapping (suite_name -> list of parent suite names)."""
+    return {name: list(parents) for name, parents in _suite_extends.items()}
+
+
 def load_all_definitions() -> int:
     """Scan definitions/ directory for *.yaml files and load each.
 

@@ -1,6 +1,6 @@
 """Platform abstraction: registry, connection, read-only executor. Platform-specific adapters register here."""
 
-from agent.platform.registry import get_platform, get_suite, register_platform
+from agent.platform.registry import get_all_suites, get_platform, get_suite, get_suite_names, register_platform
 from agent.platform.connection import create_connection
 from agent.platform.executor import execute_readonly
 
@@ -14,8 +14,10 @@ except ImportError:
 import agent.suites  # noqa: F401 — auto-discovers YAML suite definitions
 
 __all__ = [
+    "get_all_suites",
     "get_platform",
     "get_suite",
+    "get_suite_names",
     "register_platform",
     "create_connection",
     "execute_readonly",

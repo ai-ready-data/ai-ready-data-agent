@@ -2,6 +2,7 @@
 
 import argparse
 import json
+import logging
 import os
 import sys
 from pathlib import Path
@@ -17,6 +18,8 @@ from agent.audit import AuditSink
 from agent.platform.registry import get_suite
 from agent.platform import get_platform
 from agent.manifest_loader import load_manifest
+
+logger = logging.getLogger("aird")
 
 
 def _default_manifest_path() -> Path:
@@ -263,13 +266,15 @@ def cmd_diff(cfg: Config) -> None:
 
 def cmd_suites(_cfg: Config) -> None:
     import agent.platform.duckdb_adapter  # noqa: F401
-    from agent.platform.registry import _suites
-    from agent.suites.loader import _suite_extends
-    for name in sorted(_suites.keys()):
-        tests = _suites[name]
+    from agent.platform.registry import get_all_suites, get_suite_names
+    from agent.suites.loader import get_suite_extends
+    all_suites = get_all_suites()
+    suite_extends = get_suite_extends()
+    for name in get_suite_names():
+        tests = all_suites[name]
         count_str = f"{len(tests)} tests"
-        if name in _suite_extends:
-            parents = ", ".join(_suite_extends[name])
+        if name in suite_extends:
+            parents = ", ".join(suite_extends[name])
             _write_stdout(f"{name}\t{count_str}  (extends: {parents})")
         else:
             _write_stdout(f"{name}\t{count_str}")
@@ -354,6 +359,11 @@ def main() -> None:
 
     args = parser.parse_args()
 
+    # Configure logging before anything else
+    log_level_str = (getattr(args, "log_level", None) or "warning").upper()
+    logging.basicConfig(level=getattr(logging, log_level_str, logging.WARNING),
+                        format="%(levelname)s: %(message)s")
+
     # init is handled before config resolution (it collects config interactively)
     if args.command == "init":
         from agent.commands.init import run_init
@@ -384,10 +394,10 @@ def main() -> None:
         elif args.command == "suites":
             cmd_suites(cfg)
     except UsageError as e:
-        print(str(e), file=sys.stderr)
+        logger.error(str(e))
         sys.exit(2)
     except (AssessmentRuntimeError, ValueError, FileNotFoundError, json.JSONDecodeError) as e:
-        print(str(e), file=sys.stderr)
+        logger.error(str(e))
         sys.exit(1)
 
 

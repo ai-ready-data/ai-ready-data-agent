@@ -1,6 +1,6 @@
 """Platform and suite registry. Adapters register by connection scheme or name."""
 
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 # scheme -> (adapter_name, create_connection_func, default_suite_name)
 _platforms: dict[str, tuple[str, Callable[[str], Any], str]] = {}
@@ -54,3 +54,13 @@ def get_suite(name: str) -> list[dict]:
     if name not in _suites:
         return []
     return list(_suites[name])
+
+
+def get_all_suites() -> Dict[str, List[dict]]:
+    """Return a shallow copy of all registered suites (suite_name -> test list copies)."""
+    return {name: list(tests) for name, tests in _suites.items()}
+
+
+def get_suite_names() -> List[str]:
+    """Return a sorted list of all registered suite names."""
+    return sorted(_suites.keys())
