@@ -68,6 +68,11 @@ class Config:
     diff_left: Optional[str] = None  # id or path
     diff_right: Optional[str] = None
 
+    # Quick actions
+    factor_filter: Optional[str] = None  # --factor: filter to single factor
+    compare_tables: list = field(default_factory=list)  # --tables for compare
+    rerun_id: Optional[str] = None  # --id for rerun (defaults to most recent)
+
     @classmethod
     def from_env(cls) -> "Config":
         """Load defaults from environment only."""

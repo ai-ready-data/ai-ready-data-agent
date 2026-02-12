@@ -69,6 +69,7 @@ _ARG_MAP: dict = {
     "left":                 "diff_left",
     "right":                "diff_right",
     "survey_answers":       "survey_answers_path",
+    "factor":               "factor_filter",
 }
 
 # Args that need Path() wrapping when present.
@@ -229,22 +230,30 @@ def _format_dry_run_preview(report: dict) -> str:
 
 
 def cmd_assess(cfg: Config) -> None:
-    # Show a Rich progress bar when running interactively
-    progress_callback = None
-    progress_ctx = None
+    # --- Guided interactive flow (early return) ---
     if cfg.interactive:
         from agent.ui.console import is_interactive
 
         if is_interactive():
-            from agent.ui.progress import TestProgressBar
+            from agent.ui.flow import InteractiveAssessFlow
 
-            progress_ctx = TestProgressBar()
+            flow = InteractiveAssessFlow(cfg)
+            report = flow.run()
 
-    if progress_ctx is not None:
-        with progress_ctx as pb:
-            report = run_assess(cfg, progress_callback=pb.callback)
-    else:
-        report = run_assess(cfg)
+            # Save (the flow does not persist)
+            if not cfg.no_save:
+                conn = storage.get_connection(cfg.db_path)
+                try:
+                    aid = storage.save_report(conn, report)
+                    report["assessment_id"] = aid
+                finally:
+                    conn.close()
+
+            _write_output(report, cfg.output, markdown_fn=report_to_markdown)
+            return
+
+    # --- Non-interactive (batch) path ---
+    report = run_assess(cfg)
 
     if report.get("dry_run"):
         out = cfg.output
@@ -253,7 +262,15 @@ def cmd_assess(cfg: Config) -> None:
         else:
             _write_stdout(_format_dry_run_preview(report))
         return
-    _write_output(report, cfg.output, markdown_fn=report_to_markdown)
+    # When stdout is a TTY and output format is markdown, render a coloured
+    # Rich report to stderr (the shared console).  Otherwise fall through to
+    # the plain-text / JSON path that writes to stdout.
+    if cfg.output == OutputFormat.MARKDOWN and sys.stdout.isatty():
+        from agent.ui.report import render_rich_report
+
+        render_rich_report(report)
+    else:
+        _write_output(report, cfg.output, markdown_fn=report_to_markdown)
     if report.get("_diff_previous_id"):
         _write_stdout(f"\n(Diff vs previous: {report['_diff_previous_id']})")
 
@@ -412,6 +429,16 @@ def cmd_suites(_cfg: Config) -> None:
                 _write_stdout(f"{name}\t{count_str}")
 
 
+def cmd_compare(cfg: Config) -> None:
+    from agent.commands.compare import run_compare
+    run_compare(cfg)
+
+
+def cmd_rerun(cfg: Config) -> None:
+    from agent.commands.rerun import run_rerun
+    run_rerun(cfg)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="aird", description="AI-Ready Data assessment CLI")
     parser.add_argument("--log-level", default=None, help="Log level")
@@ -436,6 +463,7 @@ def main() -> None:
     p_assess.add_argument("--audit", action="store_true")
     p_assess.add_argument("--survey", action="store_true", help="Run question-based survey and include in report")
     p_assess.add_argument("--survey-answers", default=None, help="Path to YAML of pre-filled answers (for non-interactive demo)")
+    p_assess.add_argument("--factor", default=None, help="Filter to a single factor (e.g., clean, contextual)")
 
     # discover
     p_disc = subparsers.add_parser("discover", help="Connect and output inventory")
@@ -489,6 +517,22 @@ def main() -> None:
     # init
     subparsers.add_parser("init", help="Interactive setup wizard for first-time users")
 
+    # compare
+    p_compare = subparsers.add_parser("compare", help="Compare assessment results for two tables side-by-side")
+    p_compare.add_argument("-c", "--connection", default=None, dest="connection")
+    p_compare.add_argument("--tables", default=None, dest="compare_tables", action="append",
+                           help="Comma-separated table names to compare (e.g., main.t1,main.t2)")
+    p_compare.add_argument("--suite", default="auto")
+    p_compare.add_argument("--thresholds", default=None)
+    p_compare.add_argument("--no-save", action="store_true")
+
+    # rerun
+    p_rerun = subparsers.add_parser("rerun", help="Re-run failed tests from the most recent assessment")
+    p_rerun.add_argument("-c", "--connection", default=None, dest="connection")
+    p_rerun.add_argument("--id", default=None, dest="rerun_id", help="Assessment ID to re-run (default: most recent)")
+    p_rerun.add_argument("--thresholds", default=None)
+    p_rerun.add_argument("--no-save", action="store_true")
+
     args = parser.parse_args()
 
     # Configure logging before anything else
@@ -522,6 +566,10 @@ def main() -> None:
             cmd_diff(cfg)
         elif args.command == "suites":
             cmd_suites(cfg)
+        elif args.command == "compare":
+            cmd_compare(cfg)
+        elif args.command == "rerun":
+            cmd_rerun(cfg)
     except UsageError as e:
         logger.error(str(e))
         sys.exit(2)

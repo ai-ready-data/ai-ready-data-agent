@@ -87,6 +87,7 @@ def run_assess(config: Config, *, progress_callback: Optional[Callable[[int, int
         audit=audit if config.audit else None,
         thresholds=thresholds,
         progress_callback=progress_callback,
+        factor_filter=config.factor_filter,
     )
 
     if config.dry_run:
