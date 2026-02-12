@@ -67,6 +67,15 @@ def run_assess(config: Config, *, progress_callback: Optional[Callable[[int, int
         tables=tables,
     )
 
+    if config.interactive:
+        from agent.ui.console import is_interactive
+        if is_interactive():
+            from agent.ui.discovery import show_discovery_tree, select_tables, filter_inventory
+            show_discovery_tree(inv)
+            selected = select_tables(inv)
+            if selected:
+                inv = filter_inventory(inv, selected)
+
     if config.interactive and config.audit:
         audit.log_conversation("Discovery complete. Proceeding to run tests.", phase="post_discover")
 
@@ -94,7 +103,7 @@ def run_assess(config: Config, *, progress_callback: Optional[Callable[[int, int
         resolved_suite = config.suite if config.suite != "auto" else default_suite
         questions = get_suite_questions(resolved_suite)
         answers = _load_survey_answers(config.survey_answers_path)
-        question_results = run_survey(questions=questions, answers=answers)
+        question_results = run_survey(questions=questions, answers=answers, interactive=config.interactive)
 
     target_workload = config.target_workload or (context or {}).get("target_level") or None
     report = build_report(
