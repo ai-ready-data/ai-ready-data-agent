@@ -1,7 +1,7 @@
 # Clean factor suite for Snowflake — migrated from clean_snowflake.py
 # Snowflake-native SQL: COUNT_IF, TRY_CAST, quoted identifiers
 # Requirement keys match agent/requirements_registry.yaml
-suite_name: common_snowflake
+suite_name: clean_snowflake
 platform: snowflake
 
 tests:

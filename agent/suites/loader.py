@@ -6,7 +6,8 @@ expected schema, and calls register_suite() for each suite.
 YAML schema per file:
     suite_name: str          # name to register (e.g. "common", "common_sqlite")
     platform: str            # informational (e.g. "duckdb", "snowflake")
-    tests:                   # list of test definitions
+    extends: list[str]       # optional: suite names whose tests are merged first
+    tests:                   # list of test definitions (can be empty if extends is set)
       - id: str
         factor: str
         requirement: str     # must match a key in requirements_registry.yaml
@@ -17,11 +18,11 @@ YAML schema per file:
 
 import logging
 from pathlib import Path
-from typing import List
+from typing import Dict, List, Optional
 
 import yaml
 
-from agent.platform.registry import register_suite
+from agent.platform.registry import get_suite, register_suite
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,10 @@ _DEFINITIONS_DIR = Path(__file__).parent / "definitions"
 
 _REQUIRED_TEST_FIELDS = {"id", "factor", "requirement", "target_type"}
 _VALID_TARGET_TYPES = {"platform", "table", "column"}
+
+# Tracks which suites use extends (suite_name -> list of parent suite names).
+# Populated during loading; consumed by cmd_suites for display.
+_suite_extends: Dict[str, List[str]] = {}
 
 
 def _validate_test(test: dict, file_path: Path, index: int) -> List[str]:
@@ -47,8 +52,51 @@ def _validate_test(test: dict, file_path: Path, index: int) -> List[str]:
     return errors
 
 
+def _resolve_extends(
+    suite_name: str,
+    extends: List[str],
+    resolving: Optional[set] = None,
+) -> list[dict]:
+    """Resolve parent suites listed in ``extends`` and return their merged tests.
+
+    Raises ValueError on circular dependencies or missing parent suites.
+    """
+    if resolving is None:
+        resolving = set()
+
+    if suite_name in resolving:
+        cycle = " -> ".join(list(resolving) + [suite_name])
+        raise ValueError(f"Circular suite dependency detected: {cycle}")
+
+    resolving.add(suite_name)
+    merged: list[dict] = []
+
+    for parent_name in extends:
+        if parent_name in resolving:
+            cycle = " -> ".join(list(resolving) + [parent_name])
+            raise ValueError(f"Circular suite dependency detected: {cycle}")
+
+        parent_tests = get_suite(parent_name)
+        if not parent_tests:
+            raise ValueError(
+                f"Suite '{suite_name}' extends '{parent_name}', but '{parent_name}' "
+                f"is not registered. Ensure the parent suite file is loaded first "
+                f"(files are loaded in sorted order)."
+            )
+
+        # If the parent itself was composed, its tests are already resolved
+        # in the registry, so we just take them as-is.
+        merged.extend(parent_tests)
+
+    resolving.discard(suite_name)
+    return merged
+
+
 def load_suite_file(file_path: Path) -> None:
     """Load a single YAML suite file and register its tests.
+
+    Supports an optional ``extends`` field: a list of suite names whose tests
+    are merged before the current file's own tests.
 
     Raises ValueError for malformed files so callers get clear error messages.
     """
@@ -61,9 +109,22 @@ def load_suite_file(file_path: Path) -> None:
     if not suite_name or not isinstance(suite_name, str):
         raise ValueError(f"Suite file {file_path.name}: missing or invalid 'suite_name'")
 
+    extends = data.get("extends")
     tests_raw = data.get("tests")
-    if not isinstance(tests_raw, list) or len(tests_raw) == 0:
-        raise ValueError(f"Suite file {file_path.name}: 'tests' must be a non-empty list")
+
+    # Validate extends field
+    if extends is not None:
+        if not isinstance(extends, list) or not all(isinstance(s, str) for s in extends):
+            raise ValueError(f"Suite file {file_path.name}: 'extends' must be a list of suite name strings")
+
+    # tests can be empty/absent when extends is set; otherwise must be non-empty
+    has_extends = extends and len(extends) > 0
+    if tests_raw is None:
+        tests_raw = []
+    if not isinstance(tests_raw, list):
+        raise ValueError(f"Suite file {file_path.name}: 'tests' must be a list")
+    if not has_extends and len(tests_raw) == 0:
+        raise ValueError(f"Suite file {file_path.name}: 'tests' must be a non-empty list (or use 'extends')")
 
     # Validate all tests before registering any
     all_errors: List[str] = []
@@ -78,8 +139,13 @@ def load_suite_file(file_path: Path) -> None:
             f"Suite file {file_path.name}: validation errors:\n" + "\n".join(all_errors)
         )
 
-    # Build test dicts (same shape as Python suites produce)
-    tests = []
+    # Resolve parent suites if extends is specified
+    merged_tests: list[dict] = []
+    if has_extends:
+        merged_tests = _resolve_extends(suite_name, extends)
+        _suite_extends[suite_name] = list(extends)
+
+    # Build test dicts from this file's own tests (same shape as Python suites produce)
     for test in tests_raw:
         entry = {
             "id": test["id"],
@@ -91,10 +157,10 @@ def load_suite_file(file_path: Path) -> None:
             entry["query"] = test["query"]
         if "query_template" in test:
             entry["query_template"] = test["query_template"]
-        tests.append(entry)
+        merged_tests.append(entry)
 
-    register_suite(suite_name, tests)
-    logger.debug("Loaded suite '%s' (%d tests) from %s", suite_name, len(tests), file_path.name)
+    register_suite(suite_name, merged_tests)
+    logger.debug("Loaded suite '%s' (%d tests) from %s", suite_name, len(merged_tests), file_path.name)
 
 
 def load_all_definitions() -> int:

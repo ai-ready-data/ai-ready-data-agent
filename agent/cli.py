@@ -203,9 +203,15 @@ def cmd_diff(cfg: Config) -> None:
 def cmd_suites(_cfg: Config) -> None:
     import agent.platform.duckdb_adapter  # noqa: F401
     from agent.platform.registry import _suites
+    from agent.suites.loader import _suite_extends
     for name in sorted(_suites.keys()):
         tests = _suites[name]
-        _write_stdout(f"{name}\t{len(tests)} tests")
+        count_str = f"{len(tests)} tests"
+        if name in _suite_extends:
+            parents = ", ".join(_suite_extends[name])
+            _write_stdout(f"{name}\t{count_str}  (extends: {parents})")
+        else:
+            _write_stdout(f"{name}\t{count_str}")
 
 
 def main() -> None:

@@ -1,7 +1,6 @@
 # Contextual factor suite for Snowflake — migrated from contextual_snowflake.py
-# Appends to common_snowflake suite (Clean + Contextual)
 # Requirement keys match agent/requirements_registry.yaml
-suite_name: common_snowflake
+suite_name: contextual_snowflake
 platform: snowflake
 
 tests:
