@@ -1,0 +1,110 @@
+# Canonical requirements registry: source of truth for all requirement keys,
+# their factor, threshold direction, and default L1/L2/L3 thresholds.
+#
+# direction: "lte" = lower is better (rate-of-bad metrics); "gte" = higher is better (coverage metrics).
+# default_thresholds: per-workload thresholds (l1=analytics, l2=RAG, l3=training).
+
+# ── Factor 0: Clean ──────────────────────────────────────────────────────────
+table_discovery:
+  name: Table Discovery
+  description: Number of tables discovered in the data source (informational, always passes).
+  factor: clean
+  direction: lte
+  default_thresholds: {l1: 1.0, l2: 1.0, l3: 1.0}
+
+null_rate:
+  name: Null Rate
+  description: Fraction of null values per column. Lower is better.
+  factor: clean
+  direction: lte
+  default_thresholds: {l1: 0.2, l2: 0.05, l3: 0.01}
+
+duplicate_rate:
+  name: Duplicate Rate
+  description: Fraction of duplicate rows per table. Lower is better.
+  factor: clean
+  direction: lte
+  default_thresholds: {l1: 0.1, l2: 0.02, l3: 0.01}
+
+format_inconsistency_rate:
+  name: Format Inconsistency Rate
+  description: Fraction of values with inconsistent format (e.g. date strings that fail to parse). Lower is better.
+  factor: clean
+  direction: lte
+  default_thresholds: {l1: 0.1, l2: 0.05, l3: 0.01}
+
+type_inconsistency_rate:
+  name: Type Inconsistency Rate
+  description: Fraction of values with inconsistent type (e.g. non-numeric in numeric column). Lower is better.
+  factor: clean
+  direction: lte
+  default_thresholds: {l1: 0.05, l2: 0.02, l3: 0.01}
+
+zero_negative_rate:
+  name: Zero/Negative Rate
+  description: Fraction of zero or negative values in numeric columns expected to be positive. Lower is better.
+  factor: clean
+  direction: lte
+  default_thresholds: {l1: 0.05, l2: 0.02, l3: 0.01}
+
+# ── Factor 1: Contextual ─────────────────────────────────────────────────────
+primary_key_defined:
+  name: Primary Key Defined
+  description: Fraction of tables with a declared primary key constraint. Higher is better.
+  factor: contextual
+  direction: gte
+  default_thresholds: {l1: 0.5, l2: 0.8, l3: 0.95}
+
+semantic_model_coverage:
+  name: Semantic Model Coverage
+  description: Fraction of tables represented in a semantic model or view. Higher is better.
+  factor: contextual
+  direction: gte
+  default_thresholds: {l1: 0.2, l2: 0.5, l3: 0.8}
+
+foreign_key_coverage:
+  name: Foreign Key Coverage
+  description: Fraction of tables with at least one foreign key constraint. Higher is better.
+  factor: contextual
+  direction: gte
+  default_thresholds: {l1: 0.3, l2: 0.6, l3: 0.8}
+
+temporal_scope_present:
+  name: Temporal Scope Present
+  description: Fraction of tables with temporal columns (dates, timestamps). Higher is better.
+  factor: contextual
+  direction: gte
+  default_thresholds: {l1: 0.3, l2: 0.6, l3: 0.9}
+
+# ── Factor 2: Consumable (placeholder) ───────────────────────────────────────
+serving_capability:
+  name: Serving Capability
+  description: Placeholder for consumable factor — serving capability assessment.
+  factor: consumable
+  direction: lte
+  default_thresholds: {l1: 1.0, l2: 1.0, l3: 1.0}
+
+# ── Factor 3: Current (placeholder) ──────────────────────────────────────────
+freshness_metadata:
+  name: Freshness Metadata
+  description: Placeholder for current factor — freshness metadata assessment.
+  factor: current
+  direction: lte
+  default_thresholds: {l1: 1.0, l2: 1.0, l3: 1.0}
+
+# ── Factor 4: Correlated (placeholder) ───────────────────────────────────────
+lineage_metadata:
+  name: Lineage Metadata
+  description: Placeholder for correlated factor — lineage metadata assessment.
+  factor: correlated
+  direction: lte
+  default_thresholds: {l1: 1.0, l2: 1.0, l3: 1.0}
+
+# ── Factor 5: Compliant (placeholder) ────────────────────────────────────────
+access_control_metadata:
+  name: Access Control Metadata
+  description: Placeholder for compliant factor — access control metadata assessment.
+  factor: compliant
+  direction: lte
+  default_thresholds: {l1: 1.0, l2: 1.0, l3: 1.0}
+
