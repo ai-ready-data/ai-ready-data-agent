@@ -24,17 +24,19 @@ Three phases of structured questions so the agent can tailor the assessment and 
 
 Ask in order of priority. Use progressive disclosure.
 
-1. **Platforms (first):** "What platforms do you have access to? (e.g. DuckDB, SQLite, Snowflake.)" I'll add each to your **connections manifest** so we have a single source of truth for your estate. If you only have one database, we can skip the manifest and use a connection string directly.
+1. **Platform (first):** "What database platform are you using? (e.g. DuckDB, SQLite, Snowflake.)" This determines which driver to install and which test suite to use. For first-time setup, `aird init` can guide you through this interactively.
 
-2. **Target workload:** "What are you building toward: analytics dashboards (L1), RAG/search (L2), or model training (L3)?" Drives which threshold level to emphasize and how to prioritize failures.
+2. **Target workload:** "What are you building toward: analytics dashboards (L1), RAG/search (L2), or model training (L3)?" Drives which threshold level to emphasize and how to prioritize failures. Maps to the `--workload` flag: `--workload analytics` (L1), `--workload rag` (L2), `--workload training` (L3).
 
-3. **Data estate:** "Are there schemas we should skip? (e.g. staging, scratch, test.)" Informs scope; can be passed as `--schema` or exclusions when supported.
+3. **Scope:** "Are there schemas we should skip? (e.g. staging, scratch, test.)" Informs scope; can be passed as `--schema` or exclusions when supported.
 
 4. **Infrastructure:** "Do you use dbt, a data catalog, OpenTelemetry, or Iceberg?" Helps explain what can or can't be assessed.
 
 5. **Governance:** "Do you have PII classification? Which columns are sensitive?" Relevant for Compliant factor when implemented.
 
 6. **Pain points:** "What prompted this assessment? Any known issues?" Helps validate that the assessment catches what matters.
+
+**Tip:** `aird assess -i` (interactive mode) provides a guided flow that handles scope selection and workload choice interactively, so some of these questions may be answered during the assessment itself.
 
 **STOP:** Wait for user responses before proceeding to connect.
 
@@ -45,6 +47,8 @@ After running `aird discover`, present the summary (schemas, table counts) and a
 1. **Scope:** "I found N tables across M schemas. Assess all, or exclude any?"
 2. **Criticality:** "Which tables are most critical for your AI workload?" (Optional; helps prioritize in interpretation.)
 3. **Nullable by design:** "Are there columns where nulls are expected?" (Optional; can inform threshold overrides when supported.)
+
+**Note:** In interactive mode (`aird assess -i`), scope selection is handled with checkbox prompts — the user can browse discovered tables and select which to include.
 
 **STOP:** Confirm scope before running the assessment.
 
