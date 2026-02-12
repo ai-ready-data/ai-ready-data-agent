@@ -1,7 +1,7 @@
 """Resolve args and env into a single config object. CLI layer only; no business logic."""
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, fields
 from pathlib import Path
 from typing import Optional
 
@@ -81,62 +81,18 @@ class Config:
             db_path=Path(p) if (p := _env("AIRD_DB_PATH")) else default_db_path(),
         )
 
-    def with_args(
-        self,
-        *,
-        connection: Optional[str] = None,
-        schemas: Optional[list[str]] = None,
-        tables: Optional[list[str]] = None,
-        context_path: Optional[Path] = None,
-        suite: Optional[str] = None,
-        thresholds_path: Optional[Path] = None,
-        output: Optional[str] = None,
-        no_save: Optional[bool] = None,
-        compare: Optional[bool] = None,
-        dry_run: Optional[bool] = None,
-        interactive: Optional[bool] = None,
-        audit: Optional[bool] = None,
-        survey: Optional[bool] = None,
-        survey_answers_path: Optional[Path] = None,
-        target_workload: Optional[str] = None,
-        db_path: Optional[Path] = None,
-        log_level: Optional[str] = None,
-        inventory_path: Optional[str] = None,
-        results_path: Optional[str] = None,
-        report_path: Optional[str] = None,
-        report_id: Optional[str] = None,
-        history_connection_filter: Optional[str] = None,
-        history_limit: Optional[int] = None,
-        diff_left: Optional[str] = None,
-        diff_right: Optional[str] = None,
-    ) -> "Config":
-        """Return a new config with overrides from CLI args."""
-        return Config(
-            connection=connection if connection is not None else self.connection,
-            schemas=schemas if schemas is not None else self.schemas,
-            tables=tables if tables is not None else self.tables,
-            context_path=context_path if context_path is not None else self.context_path,
-            suite=suite if suite is not None else self.suite,
-            thresholds_path=thresholds_path if thresholds_path is not None else self.thresholds_path,
-            output=output if output is not None else self.output,
-            no_save=no_save if no_save is not None else self.no_save,
-            compare=compare if compare is not None else self.compare,
-            dry_run=dry_run if dry_run is not None else self.dry_run,
-            interactive=interactive if interactive is not None else self.interactive,
-            audit=audit if audit is not None else self.audit,
-            survey=survey if survey is not None else self.survey,
-            survey_answers_path=survey_answers_path if survey_answers_path is not None else self.survey_answers_path,
-            target_workload=target_workload if target_workload is not None else self.target_workload,
-            db_path=db_path if db_path is not None else self.db_path,
-            log_level=log_level if log_level is not None else self.log_level,
-            inventory_path=inventory_path if inventory_path is not None else self.inventory_path,
-            results_path=results_path if results_path is not None else self.results_path,
-            report_path=report_path if report_path is not None else self.report_path,
-            report_id=report_id if report_id is not None else self.report_id,
-            history_connection_filter=history_connection_filter
-            if history_connection_filter is not None
-            else self.history_connection_filter,
-            history_limit=history_limit if history_limit is not None else self.history_limit,
-            diff_left=diff_left if diff_left is not None else self.diff_left,
-            diff_right=diff_right if diff_right is not None else self.diff_right,
-        )
+    def with_args(self, **overrides) -> "Config":
+        """Return a new config with overrides from CLI args.
+
+        Accepts any Config field name as a keyword argument.  Values that are
+        ``None`` are ignored (the current value is kept).
+        """
+        valid_names = {f.name for f in fields(self)}
+        bad = set(overrides) - valid_names
+        if bad:
+            raise TypeError(f"Unknown Config fields: {bad}")
+        merged = {
+            f.name: overrides[f.name] if overrides.get(f.name) is not None else getattr(self, f.name)
+            for f in fields(self)
+        }
+        return Config(**merged)

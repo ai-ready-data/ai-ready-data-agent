@@ -51,39 +51,89 @@ def _resolve_connection(args: argparse.Namespace, cfg: Config):
     return None
 
 
+# Mapping from argparse dest name → Config field name.
+# Entries where the names match (e.g. "suite" → "suite") are included for
+# completeness; entries where they differ are the important ones.
+_ARG_MAP: dict = {
+    # argparse dest       → Config field
+    "schema":               "schemas",
+    "context":              "context_path",
+    "thresholds":           "thresholds_path",
+    "workload":             "target_workload",
+    "inventory":            "inventory_path",
+    "results":              "results_path",
+    "report":               "report_path",
+    "id":                   "report_id",
+    "connection_filter":    "history_connection_filter",
+    "limit":                "history_limit",
+    "left":                 "diff_left",
+    "right":                "diff_right",
+    "survey_answers":       "survey_answers_path",
+}
+
+# Args that need Path() wrapping when present.
+_PATH_ARGS = {"context", "thresholds", "survey_answers", "db_path"}
+
+
 def _config_from_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> Config:
     cfg = Config.from_env()
+
+    # Resolve connection (special: manifest fallback for assess)
     connection_arg = getattr(args, "connection", None) or cfg.connection
     if getattr(args, "command", None) == "assess" and not connection_arg:
         connection_arg = _resolve_connection(args, cfg)
-    cfg = cfg.with_args(
-        connection=connection_arg or cfg.connection,
-        schemas=getattr(args, "schema", None) or cfg.schemas,
-        tables=getattr(args, "tables", None) or cfg.tables,
-        context_path=Path(args.context) if getattr(args, "context", None) else cfg.context_path,
-        suite=getattr(args, "suite", None) or cfg.suite,
-        thresholds_path=Path(args.thresholds) if getattr(args, "thresholds", None) else cfg.thresholds_path,
-        output=getattr(args, "output", None) or cfg.output,
-        no_save=getattr(args, "no_save", None) or cfg.no_save,
-        compare=getattr(args, "compare", None) or cfg.compare,
-        dry_run=getattr(args, "dry_run", None) or cfg.dry_run,
-        interactive=getattr(args, "interactive", None) or cfg.interactive,
-        audit=getattr(args, "audit", None) or cfg.audit,
-        survey=getattr(args, "survey", None) or cfg.survey,
-        survey_answers_path=Path(args.survey_answers) if getattr(args, "survey_answers", None) else cfg.survey_answers_path,
-        target_workload=getattr(args, "workload", None) or cfg.target_workload,
-        db_path=Path(args.db_path) if getattr(args, "db_path", None) else cfg.db_path,
-        log_level=getattr(args, "log_level", None) or cfg.log_level,
-        inventory_path=getattr(args, "inventory", None),
-        results_path=getattr(args, "results", None),
-        report_path=getattr(args, "report", None),
-        report_id=getattr(args, "id", None),
-        history_connection_filter=getattr(args, "connection_filter", None),
-        history_limit=getattr(args, "limit", None) or cfg.history_limit,
-        diff_left=getattr(args, "left", None) or (args.left_id if hasattr(args, "left_id") else None),
-        diff_right=getattr(args, "right", None) or (args.right_id if hasattr(args, "right_id") else None),
-    )
-    return cfg
+
+    overrides: dict = {"connection": connection_arg or cfg.connection}
+
+    # Collect overrides from argparse namespace via the mapping
+    # Skip args that are handled specially or have no Config equivalent.
+    _SKIP_ARGS = {"command", "connection", "left_id", "right_id"}
+    for arg_dest, value in vars(args).items():
+        if arg_dest in _SKIP_ARGS:
+            continue
+        cfg_field = _ARG_MAP.get(arg_dest, arg_dest)
+        if value is None:
+            continue
+        overrides[cfg_field] = Path(value) if arg_dest in _PATH_ARGS and value else value
+
+    # diff positional args (left_id / right_id)
+    if hasattr(args, "left_id") and args.left_id:
+        overrides.setdefault("diff_left", args.left_id)
+    if hasattr(args, "right_id") and args.right_id:
+        overrides.setdefault("diff_right", args.right_id)
+
+    return cfg.with_args(**overrides)
+
+
+# Recognised connection schemes (kept in sync with platform adapters).
+_KNOWN_SCHEMES = {"duckdb", "sqlite", "snowflake"}
+
+
+def _validate_config(cfg: Config) -> None:
+    """Validate resolved config; raise ``UsageError`` for invalid inputs."""
+    # Connection string format
+    if cfg.connection:
+        if "://" not in cfg.connection:
+            raise UsageError(
+                f"Invalid connection string: {cfg.connection!r} — "
+                "must use scheme://... format (e.g. duckdb:///path.duckdb)"
+            )
+        scheme = cfg.connection.split("://", 1)[0].lower()
+        if scheme not in _KNOWN_SCHEMES:
+            raise UsageError(
+                f"Unknown connection scheme: {scheme!r}. "
+                f"Supported: {', '.join(sorted(_KNOWN_SCHEMES))}"
+            )
+
+    # File-path args must exist when provided
+    _file_checks = [
+        (cfg.thresholds_path, "--thresholds"),
+        (cfg.context_path, "--context"),
+        (cfg.survey_answers_path, "--survey-answers"),
+    ]
+    for path, flag in _file_checks:
+        if path is not None and not path.exists():
+            raise UsageError(f"File not found for {flag}: {path}")
 
 
 def _read_stdin() -> str:
@@ -388,6 +438,7 @@ def main() -> None:
     cfg = _config_from_args(parser, args)
 
     try:
+        _validate_config(cfg)
         if args.command == "assess":
             cmd_assess(cfg)
         elif args.command == "discover":
@@ -401,10 +452,6 @@ def main() -> None:
         elif args.command == "history":
             cmd_history(cfg)
         elif args.command == "diff":
-            if getattr(args, "left_id", None):
-                cfg = cfg.with_args(diff_left=args.left_id, diff_right=args.right_id)
-            elif getattr(args, "left", None):
-                cfg = cfg.with_args(diff_left=args.left, diff_right=args.right)
             cmd_diff(cfg)
         elif args.command == "suites":
             cmd_suites(cfg)
