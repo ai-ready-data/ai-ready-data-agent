@@ -1,6 +1,9 @@
 """Test runner: generate tests from inventory, execute read-only, produce results. Optional dry_run and audit."""
 
-from typing import Any, List, Optional
+import logging
+from typing import Any, Callable, List, Optional
+
+logger = logging.getLogger(__name__)
 
 from agent.platform import get_platform
 from agent.platform.executor import execute_readonly
@@ -36,10 +39,13 @@ def _column_matches_requirement(col: dict, requirement: str) -> bool:
     return True
 
 
-def expand_tests(suite_tests: List[dict], inventory: dict) -> List[dict]:
-    """Expand suite test defs (with optional query_template) into concrete tests using inventory."""
+def expand_tests(suite_tests: List[dict], inventory: dict, factor_filter: Optional[str] = None) -> List[dict]:
+    """Expand suite test defs (with optional query_template) into concrete tests using inventory.
+    If factor_filter is set, only tests matching that factor are included."""
     out: List[dict] = []
     for t in suite_tests:
+        if factor_filter and t.get("factor") != factor_filter:
+            continue
         if t.get("query"):
             out.append({
                 "id": t.get("id"),
@@ -95,26 +101,30 @@ def run_tests(
     audit: Optional[AuditSink] = None,
     assessment_id: Optional[str] = None,
     thresholds: Optional[dict] = None,
+    progress_callback: Optional[Callable[[int, int, dict], None]] = None,
+    factor_filter: Optional[str] = None,
 ) -> dict:
     """Execute suite against inventory; return results artifact. If dry_run, return preview only.
-    thresholds: optional merged dict from thresholds.load_thresholds(); when None, built-in defaults are used."""
+    thresholds: optional merged dict from thresholds.load_thresholds(); when None, built-in defaults are used.
+    progress_callback: optional callable(current_index, total, test_result) called after each test completes."""
     _, conn, default_suite = get_platform(connection_string)
     suite = suite_name if suite_name != "auto" else default_suite
     raw_tests = get_suite(suite)
     if not raw_tests:
         return {"results": [], "dry_run": dry_run, "test_count": 0}
 
-    tests = expand_tests(raw_tests, inventory)
+    tests = expand_tests(raw_tests, inventory, factor_filter=factor_filter)
     if dry_run:
         return {
             "results": [],
             "dry_run": True,
             "test_count": len(tests),
-            "preview": [{"id": t.get("id"), "factor": t.get("factor"), "requirement": t.get("requirement")} for t in tests[:15]],
+            "preview": [{"id": t.get("id"), "factor": t.get("factor"), "requirement": t.get("requirement"), "target_type": t.get("target_type")} for t in tests],
         }
 
     results_list: List[dict] = []
-    for t in tests:
+    total = len(tests)
+    for i, t in enumerate(tests):
         query = t.get("query") or "SELECT 1"
         req = t.get("requirement", "")
         try:
@@ -131,7 +141,7 @@ def run_tests(
                 mv = float(measured) if measured is not None else None
             except (TypeError, ValueError):
                 mv = None
-            results_list.append({
+            result = {
                 "test_id": t.get("id"),
                 "factor": t.get("factor"),
                 "requirement": req,
@@ -146,9 +156,12 @@ def run_tests(
                 "l1_pass": passes(req, mv, "l1", thresholds),
                 "l2_pass": passes(req, mv, "l2", thresholds),
                 "l3_pass": passes(req, mv, "l3", thresholds),
-            })
+            }
+            results_list.append(result)
         except Exception as e:
-            results_list.append({
+            # Fallback: record test as failed with error; does not abort the run
+            logger.warning("Test %s failed: %s", t.get("id"), e)
+            result = {
                 "test_id": t.get("id"),
                 "factor": t.get("factor"),
                 "requirement": req,
@@ -164,6 +177,9 @@ def run_tests(
                 "l2_pass": False,
                 "l3_pass": False,
                 "error": str(e),
-            })
+            }
+            results_list.append(result)
+        if progress_callback is not None:
+            progress_callback(i, total, result)
 
     return {"results": results_list, "dry_run": False, "test_count": len(results_list)}

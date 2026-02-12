@@ -44,7 +44,6 @@ def test_e2e_assess_report_structure_and_failures():
     try:
         connection = _make_duckdb(tmpdir)
         config = Config(connection=connection, no_save=True)
-        config = config.with_args(assessment_targets=[{"connection": connection}])
 
         report = run_assess(config)
 
@@ -104,7 +103,6 @@ def test_e2e_assess_with_threshold_override():
             no_save=True,
             thresholds_path=tmpdir / "thresholds.json",
         )
-        config = config.with_args(assessment_targets=[{"connection": connection}])
 
         report = run_assess(config)
 
@@ -139,7 +137,6 @@ def test_e2e_assess_with_context_scope():
             no_save=True,
             context_path=tmpdir / "context.yaml",
         )
-        config = config.with_args(assessment_targets=[{"connection": connection}])
 
         report = run_assess(config)
 
@@ -162,7 +159,6 @@ def test_e2e_assess_with_survey():
     try:
         connection = _make_duckdb(tmpdir)
         config = Config(connection=connection, no_save=True, survey=True)
-        config = config.with_args(assessment_targets=[{"connection": connection}])
 
         report = run_assess(config)
 

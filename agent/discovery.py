@@ -1,6 +1,9 @@
 """Discovery service: connect, introspect, apply filters, return inventory."""
 
+import logging
 from typing import Any, Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 from agent.platform import get_platform
 from agent.platform.executor import execute_readonly
@@ -67,7 +70,12 @@ def discover(
             conn,
             "SELECT table_schema, table_name FROM information_schema.tables WHERE table_schema NOT IN ('information_schema', 'pg_catalog') ORDER BY table_schema, table_name",
         )
-    except Exception:
+    except Exception as e:
+        # Known fallback: some platforms (e.g. older DuckDB) restrict system schema filtering;
+        # retry without the WHERE clause exclusion
+        logger.debug(
+            "information_schema query with schema filter failed, retrying without filter: %s", e
+        )
         tables_rows = execute_readonly(
             conn,
             "SELECT table_schema, table_name FROM information_schema.tables ORDER BY table_schema, table_name",
@@ -100,7 +108,9 @@ def discover(
                 conn,
                 f"SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = '{schema_escaped}' AND table_name = '{table_escaped}' ORDER BY ordinal_position",
             )
-        except Exception:
+        except Exception as e:
+            # Fallback: skip columns for this table if column discovery fails
+            logger.warning("Could not discover columns for %s.%s: %s", t["schema"], t["table"], e)
             cols = []
         for c in cols:
             col_name = c[0] if isinstance(c, (tuple, list)) else c["column_name"]

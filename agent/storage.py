@@ -52,6 +52,14 @@ def _init_db(conn: sqlite3.Connection) -> None:
             content TEXT NOT NULL,
             created_at TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS benchmarks (
+            id TEXT PRIMARY KEY,
+            created_at TEXT NOT NULL,
+            labels_json TEXT NOT NULL,
+            connections_json TEXT NOT NULL,
+            assessment_ids_json TEXT NOT NULL
+        );
     """)
     conn.execute("INSERT OR IGNORE INTO _schema (version) VALUES (?)", (SCHEMA_VERSION,))
 
@@ -111,6 +119,74 @@ def get_report(conn: sqlite3.Connection, assessment_id: str) -> Optional[dict]:
     if not row:
         return None
     return json.loads(row["report_json"])
+
+
+# ---------------------------------------------------------------------------
+# Benchmark storage
+# ---------------------------------------------------------------------------
+
+
+def save_benchmark(
+    conn: sqlite3.Connection,
+    labels: list,
+    connections: list,
+    assessment_ids: list,
+) -> str:
+    """Persist a benchmark group record linking individual assessment reports.
+
+    Returns the benchmark id (UUID).
+    """
+    bid = str(uuid.uuid4())
+    created_at = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    conn.execute(
+        "INSERT INTO benchmarks (id, created_at, labels_json, connections_json, assessment_ids_json) VALUES (?, ?, ?, ?, ?)",
+        (
+            bid,
+            created_at,
+            json.dumps(labels),
+            json.dumps(connections),
+            json.dumps(assessment_ids),
+        ),
+    )
+    conn.commit()
+    return bid
+
+
+def list_benchmarks(conn: sqlite3.Connection, limit: int = 20) -> list:
+    """List saved benchmark groups, most recent first."""
+    rows = conn.execute(
+        "SELECT id, created_at, labels_json, connections_json, assessment_ids_json "
+        "FROM benchmarks ORDER BY created_at DESC LIMIT ?",
+        (limit,),
+    ).fetchall()
+    out = []
+    for row in rows:
+        out.append({
+            "id": row["id"],
+            "created_at": row["created_at"],
+            "labels": json.loads(row["labels_json"]),
+            "connections": json.loads(row["connections_json"]),
+            "assessment_ids": json.loads(row["assessment_ids_json"]),
+        })
+    return out
+
+
+def get_benchmark(conn: sqlite3.Connection, benchmark_id: str) -> Optional[dict]:
+    """Load a benchmark group record by id."""
+    row = conn.execute(
+        "SELECT id, created_at, labels_json, connections_json, assessment_ids_json "
+        "FROM benchmarks WHERE id = ?",
+        (benchmark_id,),
+    ).fetchone()
+    if not row:
+        return None
+    return {
+        "id": row["id"],
+        "created_at": row["created_at"],
+        "labels": json.loads(row["labels_json"]),
+        "connections": json.loads(row["connections_json"]),
+        "assessment_ids": json.loads(row["assessment_ids_json"]),
+    }
 
 
 def write_audit_query(

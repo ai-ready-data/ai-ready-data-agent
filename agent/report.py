@@ -6,9 +6,10 @@ Report shape conforms to docs/specs/report-spec.md.
 from collections import defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any, Dict, List, Optional
 
 from agent import storage
+from agent.constants import WorkloadLevel
 
 
 # ---------------------------------------------------------------------------
@@ -92,78 +93,26 @@ def build_report(
     return out
 
 
-def build_estate_report(
-    platforms: list[dict[str, Any]],
-    *,
-    target_workload: Optional[str] = None,
-) -> dict:
-    """Build a report from multiple per-connection results (estate mode).
-
-    Each entry in platforms has: connection_fingerprint, summary, results, inventory (optional), error (optional).
-    Returns report with platforms list and aggregate_summary (roll-up L1/L2/L3 across connections).
-    """
-    created = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
-    # Aggregate: sum pass counts and total tests across successful platforms
-    total_l1 = total_l2 = total_l3 = total_tests = 0
-    all_results: list[dict] = []
-    for p in platforms:
-        if p.get("error"):
-            continue
-        s = p.get("summary", {})
-        total_l1 += s.get("l1_pass", 0)
-        total_l2 += s.get("l2_pass", 0)
-        total_l3 += s.get("l3_pass", 0)
-        total_tests += s.get("total_tests", 0)
-        all_results.extend(p.get("results", []))
-        # Ensure each platform sub-report has factor_summary
-        if "factor_summary" not in p and not p.get("error"):
-            p["factor_summary"] = _build_factor_summary(p.get("results", []))
-    if total_tests == 0:
-        total_tests = 1
-    aggregate_summary = {
-        "total_tests": total_tests,
-        "l1_pass": total_l1,
-        "l2_pass": total_l2,
-        "l3_pass": total_l3,
-        "l1_pct": round(100 * total_l1 / total_tests, 1),
-        "l2_pct": round(100 * total_l2 / total_tests, 1),
-        "l3_pct": round(100 * total_l3 / total_tests, 1),
-        "platforms_count": len(platforms),
-    }
-    return {
-        "created_at": created,
-        "connection_fingerprint": "",  # estate has no single fingerprint
-        "target_workload": target_workload,
-        "summary": aggregate_summary,
-        "factor_summary": _build_factor_summary(all_results),
-        "platforms": platforms,
-        "aggregate_summary": aggregate_summary,
-        "results": [],  # flat list not used in estate; per-platform results are in platforms[].results
-        "not_assessed": [],
-        "inventory": None,
-        "environment": {},
-        "user_context": {},
-    }
-
 
 # ---------------------------------------------------------------------------
 # Markdown rendering
 # ---------------------------------------------------------------------------
 
+# Build label lookups from WorkloadLevel enum.  The dict keeps the same
+# shape/values as before so existing callers are unaffected.
+# Short keys ("l1") use the canonical label; descriptive keys ("analytics")
+# use the enum member name for the human-readable part.
 _WORKLOAD_LABELS = {
-    "l1": "L1 (Analytics)",
-    "l2": "L2 (RAG)",
-    "l3": "L3 (Training)",
-    "analytics": "Analytics (L1)",
-    "rag": "RAG (L2)",
-    "training": "Training (L3)",
+    wl.short: wl.label for wl in WorkloadLevel
 }
+_WORKLOAD_LABELS.update({
+    wl.value: f"{wl.name.capitalize() if len(wl.name) > 3 else wl.name} ({wl.short.upper()})"
+    for wl in WorkloadLevel
+})
 
-# Map descriptive workload names to level keys
+# Map descriptive workload names to level keys (e.g. "rag" -> "l2")
 _WORKLOAD_TO_LEVEL = {
-    "analytics": "l1",
-    "rag": "l2",
-    "training": "l3",
+    wl.value: wl.short for wl in WorkloadLevel
 }
 
 
@@ -192,7 +141,7 @@ def _pass_icon(passed: bool) -> str:
     return "PASS" if passed else "FAIL"
 
 
-def _render_factor_section(factor_name: str, factor_results: list[dict], factor_sum: dict, target_level: str | None = None) -> list[str]:
+def _render_factor_section(factor_name: str, factor_results: List[dict], factor_sum: dict, target_level: Optional[str] = None) -> List[str]:
     """Render a single factor section with summary line and results table.
     
     If target_level is specified (l1, l2, l3), shows focused single-column output.
@@ -266,13 +215,10 @@ def _render_factor_section(factor_name: str, factor_results: list[dict], factor_
 
 
 def report_to_markdown(report: dict) -> str:
-    """Render report as markdown. Handles both single-connection and estate (multi-connection) reports.
+    """Render report as markdown.
 
     Rendering follows the canonical section order defined in report-spec.md.
     """
-    if report.get("platforms") is not None:
-        return _estate_report_to_markdown(report)
-
     s = report.get("summary", {})
     tw = report.get("target_workload")
     tw_label = _WORKLOAD_LABELS.get(tw, "Not specified") if tw else "Not specified"
@@ -352,56 +298,6 @@ def report_to_markdown(report: dict) -> str:
 
     return "\n".join(lines)
 
-
-def _estate_report_to_markdown(report: dict) -> str:
-    """Render estate (multi-connection) report as markdown."""
-    agg = report.get("aggregate_summary") or report.get("summary", {})
-    tw = report.get("target_workload")
-    tw_label = _WORKLOAD_LABELS.get(tw, "Not specified") if tw else "Not specified"
-
-    lines = [
-        "# AI-Ready Data Assessment Report (Estate)",
-        "",
-        f"**Created:** {report.get('created_at', '')}",
-        f"**Platforms:** {agg.get('platforms_count', 0)}",
-        f"**Target workload:** {tw_label}",
-        "",
-        "## Aggregate Summary",
-        "",
-        f"- Total tests: {agg.get('total_tests', 0)}",
-        f"- L1 pass: {agg.get('l1_pass', 0)}/{agg.get('total_tests', 0)} ({agg.get('l1_pct', 0)}%)",
-        f"- L2 pass: {agg.get('l2_pass', 0)}/{agg.get('total_tests', 0)} ({agg.get('l2_pct', 0)}%)",
-        f"- L3 pass: {agg.get('l3_pass', 0)}/{agg.get('total_tests', 0)} ({agg.get('l3_pct', 0)}%)",
-        "",
-    ]
-
-    for i, p in enumerate(report.get("platforms", []), 1):
-        fp = p.get("connection_fingerprint", "?") or "?"
-        lines.append(f"## {i}. {fp}")
-        lines.append("")
-        if p.get("error"):
-            lines.append(f"**Error:** {p['error']}")
-            lines.append("")
-            continue
-
-        # Per-platform factor breakdown
-        factor_summaries = {fs["factor"]: fs for fs in p.get("factor_summary", [])}
-        results_by_factor: dict[str, list[dict]] = defaultdict(list)
-        for r in p.get("results", []):
-            results_by_factor[r.get("factor", "unknown")].append(r)
-
-        for factor in sorted(results_by_factor):
-            fs = factor_summaries.get(factor, {})
-            # Use h3 for factor sections within a platform
-            section = _render_factor_section(factor, results_by_factor[factor], fs)
-            # Downgrade ## to ### for nesting under platform
-            for line in section:
-                if line.startswith("## "):
-                    lines.append("###" + line[2:])
-                else:
-                    lines.append(line)
-
-    return "\n".join(lines)
 
 
 # ---------------------------------------------------------------------------

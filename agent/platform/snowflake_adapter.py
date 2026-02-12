@@ -11,6 +11,7 @@ no password is required. Registers on import.
 
 import os
 from pathlib import Path
+from typing import Optional
 from urllib.parse import parse_qs, unquote, urlparse
 
 from agent.platform.registry import register_platform
@@ -32,7 +33,7 @@ _PASSWORDLESS_AUTHENTICATORS = frozenset({
 _CONNECTIONS_TOML_PATH = Path.home() / ".snowflake" / "connections.toml"
 
 
-def _load_named_connection(name: str, toml_path: Path | None = None) -> dict:
+def _load_named_connection(name: str, toml_path: Optional[Path] = None) -> dict:
     """Read a named connection from ~/.snowflake/connections.toml (or custom path).
 
     The TOML file has sections like:
@@ -74,7 +75,7 @@ def _load_named_connection(name: str, toml_path: Path | None = None) -> dict:
     return {k.lower(): v for k, v in section.items()}
 
 
-def _is_named_connection(connection_string: str) -> str | None:
+def _is_named_connection(connection_string: str) -> Optional[str]:
     """If connection_string is 'snowflake://connection:NAME', return NAME; else None."""
     if "://" not in connection_string:
         return None
@@ -90,7 +91,7 @@ def _is_named_connection(connection_string: str) -> str | None:
     return None
 
 
-def _requires_password(authenticator: str | None) -> bool:
+def _requires_password(authenticator: Optional[str]) -> bool:
     """Return True if the authenticator requires a password."""
     if not authenticator:
         return True

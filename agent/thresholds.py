@@ -3,41 +3,58 @@
 Two directions:
 - "lte" (default): pass when measured_value <= threshold. Used for rate-of-bad metrics (null_rate, duplicate_rate).
 - "gte": pass when measured_value >= threshold. Used for coverage metrics (primary_key_defined, semantic_model_coverage).
+
+Defaults are loaded from agent/requirements_registry.yaml at module init time.
+User overrides via load_thresholds(path) merge on top.
 """
 
 import json
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+import yaml
+
+# ---------------------------------------------------------------------------
+# Load defaults from the canonical requirements registry YAML
+# ---------------------------------------------------------------------------
+_REGISTRY_PATH = Path(__file__).parent / "requirements_registry.yaml"
+
+
+def _load_registry() -> tuple:
+    """Parse requirements_registry.yaml and return (default_thresholds, threshold_direction)."""
+    thresholds: Dict[str, Dict[str, float]] = {}
+    directions: Dict[str, str] = {}
+    if not _REGISTRY_PATH.exists():
+        return thresholds, directions
+    raw = yaml.safe_load(_REGISTRY_PATH.read_text())
+    if not isinstance(raw, dict):
+        return thresholds, directions
+    for key, entry in raw.items():
+        if not isinstance(entry, dict):
+            continue
+        dt = entry.get("default_thresholds", {})
+        thresholds[key] = {
+            "l1": float(dt.get("l1", 0.0)),
+            "l2": float(dt.get("l2", 0.0)),
+            "l3": float(dt.get("l3", 0.0)),
+        }
+        direction = entry.get("direction", "lte")
+        if direction != "lte":
+            directions[key] = direction
+    return thresholds, directions
+
+
 # Per-requirement threshold direction. Default is "lte" (lower is better).
 # Only requirements that use "gte" (higher is better) need an entry here.
-THRESHOLD_DIRECTION: Dict[str, str] = {
-    # Factor 1: Contextual — coverage metrics (higher is better)
-    "primary_key_defined": "gte",
-    "semantic_model_coverage": "gte",
-    "foreign_key_coverage": "gte",
-    "temporal_scope_present": "gte",
-}
+# Populated from requirements_registry.yaml at module load time.
+THRESHOLD_DIRECTION: Dict[str, str] = {}
 
-DEFAULT_THRESHOLDS = {
-    # Factor 0: Clean — rate metrics (lower is better, direction: lte)
-    "table_discovery": {"l1": 1.0, "l2": 1.0, "l3": 1.0},  # no threshold (informational)
-    "null_rate": {"l1": 0.2, "l2": 0.05, "l3": 0.01},
-    "duplicate_rate": {"l1": 0.1, "l2": 0.02, "l3": 0.01},
-    "format_inconsistency_rate": {"l1": 0.1, "l2": 0.05, "l3": 0.01},
-    "type_inconsistency_rate": {"l1": 0.05, "l2": 0.02, "l3": 0.01},
-    "zero_negative_rate": {"l1": 0.05, "l2": 0.02, "l3": 0.01},
-    # Factor 1: Contextual — coverage metrics (higher is better, direction: gte)
-    "primary_key_defined": {"l1": 0.5, "l2": 0.8, "l3": 0.95},
-    "semantic_model_coverage": {"l1": 0.2, "l2": 0.5, "l3": 0.8},
-    "foreign_key_coverage": {"l1": 0.3, "l2": 0.6, "l3": 0.8},
-    "temporal_scope_present": {"l1": 0.3, "l2": 0.6, "l3": 0.9},
-    # Factor 2–5 (demo placeholders — will be replaced as factors are implemented)
-    "serving_capability": {"l1": 1.0, "l2": 1.0, "l3": 1.0},
-    "freshness_metadata": {"l1": 1.0, "l2": 1.0, "l3": 1.0},
-    "lineage_metadata": {"l1": 1.0, "l2": 1.0, "l3": 1.0},
-    "access_control_metadata": {"l1": 1.0, "l2": 1.0, "l3": 1.0},
-}
+# Default L1/L2/L3 thresholds per requirement key.
+# Populated from requirements_registry.yaml at module load time.
+DEFAULT_THRESHOLDS: Dict[str, Dict[str, float]] = {}
+
+# Initialize from registry
+DEFAULT_THRESHOLDS, THRESHOLD_DIRECTION = _load_registry()
 
 
 def load_thresholds(path: Optional[Path]) -> Dict[str, Dict[str, float]]:

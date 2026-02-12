@@ -1,6 +1,6 @@
 """Platform abstraction: registry, connection, read-only executor. Platform-specific adapters register here."""
 
-from agent.platform.registry import get_platform, get_suite, register_platform
+from agent.platform.registry import get_all_suites, get_platform, get_suite, get_suite_names, register_platform
 from agent.platform.connection import create_connection
 from agent.platform.executor import execute_readonly
 
@@ -11,14 +11,13 @@ try:
     import agent.platform.snowflake_adapter  # noqa: F401 — optional: pip install aird-agent[snowflake]
 except ImportError:
     pass
-import agent.suites.clean_duckdb  # noqa: F401 — "common" for DuckDB
-import agent.suites.clean_sqlite  # noqa: F401 — "common_sqlite" for SQLite
-import agent.suites.clean_snowflake  # noqa: F401 — "common_snowflake" for Snowflake (Clean)
-import agent.suites.contextual_snowflake  # noqa: F401 — appends Contextual tests to "common_snowflake"
+import agent.suites  # noqa: F401 — auto-discovers YAML suite definitions
 
 __all__ = [
+    "get_all_suites",
     "get_platform",
     "get_suite",
+    "get_suite_names",
     "register_platform",
     "create_connection",
     "execute_readonly",

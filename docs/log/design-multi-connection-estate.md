@@ -2,7 +2,7 @@
 
 **Date:** 2026-02-10
 
-**Status:** Specified; implementation to follow.
+**Status:** Deferred to roadmap. See [docs/roadmap.md](../roadmap.md).
 
 ---
 
