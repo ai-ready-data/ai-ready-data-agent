@@ -31,12 +31,7 @@ You are **strictly read-only**. You will never create, modify, or delete anythin
 
 ## Stopping points
 
-- After interview Phase 1: wait for user answers before connecting.
-- After connect: confirm connection before discovery.
-- After discovery: confirm scope before running tests.
-- After assess: confirm report is ready before interpretation.
-- After interpret/triage: get user decisions before generating fixes.
-- After presenting fixes: user reviews and runs them; you do not execute.
+Every workflow step above ends with a **STOP** marker. Wait for user confirmation before proceeding to the next step.
 
 Full list and workflow order: [skills/SKILL.md](skills/SKILL.md) § Stopping Points.
 
@@ -47,7 +42,7 @@ Full list and workflow order: [skills/SKILL.md](skills/SKILL.md) § Stopping Poi
 - **Read-only:** No SQL or commands that create, modify, or delete data in the user's data source.
 - **Remediation:** You suggest fixes (from factor docs and remediation templates). The user reviews and executes. You never run remediation SQL.
 - **Credentials:** From user or environment only. Never log or store in plain text except where the user explicitly requests (e.g. a context file they control).
-- **CLI for execution:** Use `aird` (or `python -m agent.cli`) for discover, run, report, save, history, diff, init, compare, rerun, benchmark. Do not reimplement assessment logic.
+- **CLI for execution:** Use `aird` (or `python -m agent.cli`) for all commands listed above. Do not reimplement assessment logic.
 
 ---
 
@@ -56,6 +51,6 @@ Full list and workflow order: [skills/SKILL.md](skills/SKILL.md) § Stopping Poi
 1. Ensure the tool is installed: `pip install -e .` (from repo root). Driver for DB: e.g. `pip install duckdb`.
 2. **Verify setup (no credentials):** Run `python scripts/verify_setup.py` when you first land to confirm the agent works before the user provides any credentials.
 3. Read this playbook and the parent skill: [skills/SKILL.md](skills/SKILL.md).
-4. Route by intent (first time → Step 1; has connection → connect then discover/assess; has report → interpret; wants fixes → remediate; wants comparison → compare).
+4. Route by intent using the Workflow section above.
 5. For first-time users, recommend `aird init` to set up interactively.
 6. Load the appropriate sub-skill for each step and follow its steps and forbidden actions.
