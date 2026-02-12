@@ -32,10 +32,15 @@ pip install -e .
 
 # Optional: Snowflake — pip install -e ".[snowflake]"
 
+# Interactive setup wizard (first-time users)
+aird init
+
 # Run the assessment
 aird assess -c "duckdb://:memory:"
 # Or with a file: aird assess -c "duckdb://path/to/file.duckdb" -o markdown
 # Or with env: export AIRD_CONNECTION_STRING="duckdb://path/to/file.duckdb" && aird assess
+# Interactive mode (guided scope selection): aird assess -c "duckdb://file.duckdb" -i
+# Dry run (preview tests without executing): aird assess -c "duckdb://file.duckdb" --dry-run
 ```
 
 **Verify setup** (no credentials; run when you first land):
@@ -51,12 +56,17 @@ git clone https://github.com/ai-ready-data/ai-ready-data-agent.git && cd ai-read
 pip install -e .
 python scripts/verify_setup.py --write-files
 aird assess -c "duckdb://sample.duckdb" -o markdown
-# Or estate: aird assess --connections-file connections.yaml -o markdown
+```
+
+**Compare datasets** (benchmark N connections side-by-side):
+
+```bash
+aird benchmark -c "duckdb://db1.duckdb" -c "duckdb://db2.duckdb"
 ```
 
 Step-by-step checklist: [docs/E2E-from-GitHub.md](docs/E2E-from-GitHub.md).
 
-Built-in support for **DuckDB** and **SQLite** (no extra driver). Additional platforms (e.g. Snowflake) can be added via the platform registry — see [docs/specs](docs/specs/) and [docs/log](docs/log/). Run `python scripts/verify_setup.py` to confirm the agent works (no credentials); use `--write-files` to create sample.duckdb, sample.sqlite, and connections.yaml for CLI/estate runs.
+Built-in support for **DuckDB** and **SQLite** (no extra driver). Additional platforms (e.g. Snowflake) can be added via the platform registry — see [docs/specs](docs/specs/) and [docs/log](docs/log/). Run `python scripts/verify_setup.py` to confirm the agent works (no credentials); use `--write-files` to create sample data for CLI runs.
 
 ## The Three Workload Levels
 
@@ -93,19 +103,21 @@ Canonical definitions: [docs/definitions.md](docs/definitions.md). Factor docume
 
 ### [The Assessment Agent](agent/)
 
-A Python CLI with purpose-built test suites. The output is a scored report showing which workload levels your data is ready for. You can assess **one database** or a **data estate** (multiple connections in one run); estate mode produces one report with per-connection sections and an aggregate summary.
+A Python CLI with purpose-built test suites. The output is a scored report showing which workload levels your data is ready for. You can assess a single database, or use `aird benchmark` to compare multiple datasets side-by-side.
 
 **The agent is strictly read-only.** It never creates, modifies, or deletes anything in your data source. For SQL platforms, only `SELECT`, `DESCRIBE`, `SHOW`, `EXPLAIN`, and `WITH` are allowed; validation is enforced before execution.
 
-**Built-in suites:**
+**Built-in suites** (YAML-defined, auto-discovered from `agent/suites/definitions/`):
 
-| Suite | Platform | Factors | What it uses |
-|-------|----------|---------|---------------|
-| `common` | DuckDB | Clean | ANSI SQL + information_schema (null_rate, duplicate_rate, table_discovery). |
-| `common_sqlite` | SQLite | Clean | SQLite-compatible (sqlite_master, pragma table_info). |
-| `common_snowflake` | Snowflake | Clean + Contextual | Snowflake-native SQL via information_schema (null_rate, duplicate_rate, primary_key_defined, semantic_model_coverage, foreign_key_coverage, temporal_scope_present). |
+| Suite | Platform | Tests | Factors | Notes |
+|-------|----------|-------|---------|-------|
+| `common` | DuckDB | 6 | Clean | ANSI SQL + information_schema |
+| `common_sqlite` | SQLite | 6 | Clean | SQLite-compatible (sqlite_master, pragma table_info) |
+| `clean_snowflake` | Snowflake | 6 | Clean | Snowflake-native SQL via information_schema |
+| `contextual_snowflake` | Snowflake | 4 | Contextual | primary_key_defined, semantic_model_coverage, foreign_key_coverage, temporal_scope_present |
+| `common_snowflake` | Snowflake | 10 | Clean + Contextual | Composed suite (extends clean_snowflake + contextual_snowflake) |
 
-The suite is auto-detected from your connection. Or specify it: `--suite common`, `--suite common_sqlite`, or `--suite common_snowflake`.
+The suite is auto-detected from your connection. Or specify it: `--suite common`, `--suite common_sqlite`, or `--suite common_snowflake`. Suites support composition via `extends` in YAML.
 
 ### [Design & Specs](docs/)
 
@@ -115,11 +127,11 @@ Specifications, design rationale, and architecture:
 - [CLI spec](docs/specs/cli-spec.md) — commands, artifacts, config
 - [Factor spec](docs/specs/factor-spec.md) — factor document shape, requirement keys
 - [Report spec](docs/specs/report-spec.md) — canonical report JSON schema and markdown rendering
-- [Design log](docs/log/) — composability, architecture, multi-connection/estate, analysis
+- [Design log](docs/log/) — composability, architecture, analysis
 
 ## How It Works
 
-1. **Connect** — Point the agent at your database (connection string or `AIRD_CONNECTION_STRING`). For a **data estate**, pass multiple connections (repeatable `-c` or `--connections-file`). Snowflake users can use `snowflake://connection:NAME` to reuse `~/.snowflake/connections.toml`.
+1. **Connect** — Point the agent at your database (connection string or `AIRD_CONNECTION_STRING`). Snowflake users can use `snowflake://connection:NAME` to reuse `~/.snowflake/connections.toml`. Run `aird init` for an interactive setup wizard.
 2. **Discover** — The agent enumerates schemas, tables, and columns (or use `aird discover` alone).
 3. **Generate** — Tests are generated from the selected suite and inventory.
 4. **Execute** — Queries run against your data source (read-only), producing measurements.
@@ -128,12 +140,20 @@ Specifications, design rationale, and architecture:
 7. **Save** — Results are stored locally in SQLite (`~/.aird/assessments.db` by default, or `AIRD_DB_PATH`) for history and diffing.
 
 ```bash
+# Interactive setup wizard
+aird init
+
 # One-shot full pipeline (single database)
 aird assess -c "duckdb://:memory:" -o markdown
 
-# Data estate: multiple connections in one run (one report, per-connection + aggregate)
-aird assess -c "duckdb://db1.duckdb" -c "duckdb://db2.duckdb" -o markdown
-# Or: aird assess --connections-file connections.yaml -o markdown
+# Interactive mode (guided scope selection)
+aird assess -c "duckdb://file.duckdb" -i
+
+# Filter to a single factor
+aird assess -c "duckdb://file.duckdb" --factor clean
+
+# Dry run (preview tests without executing)
+aird assess -c "duckdb://file.duckdb" --dry-run
 
 # Try the Clean factor suite (create sample files, then assess)
 python scripts/verify_setup.py --write-files && aird assess -c "duckdb://sample.duckdb" -o markdown
@@ -152,11 +172,20 @@ aird suites
 
 # Compare two reports (by id or file)
 aird diff <id1> <id2>
+
+# Side-by-side comparison of two tables
+aird compare
+
+# Re-run failed tests from most recent assessment
+aird rerun -c "duckdb://file.duckdb"
+
+# Benchmark: compare multiple datasets
+aird benchmark -c "duckdb://db1.duckdb" -c "duckdb://db2.duckdb"
 ```
 
 ## For coding agents
 
-Start at **[AGENTS.md](AGENTS.md)** for the playbook. It outlines the workflow (interview → connect → discover → assess → interpret → remediate → compare), stopping points, and where to find the CLI, project, and skills. Sub-skills live in [skills/](skills/) with step-by-step guidance per phase.
+Start at **[AGENTS.md](AGENTS.md)** for the playbook. It outlines the workflow (interview → connect → discover → assess → interpret → remediate → compare), stopping points, and where to find the CLI, project, and skills. Sub-skills live in [skills/](skills/) with step-by-step guidance per phase. Key commands: `aird init` (setup), `aird assess` (full pipeline), `aird benchmark` (multi-dataset comparison), `aird compare`/`aird diff` (result comparison), `aird rerun` (retry failures).
 
 ## Contributing
 
