@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -48,8 +48,9 @@ def _load_survey_answers(path: Optional[Path]) -> dict:
         return {}
 
 
-def run_assess(config: Config) -> dict:
-    """Run full pipeline. Returns report dict; caller handles output and save."""
+def run_assess(config: Config, *, progress_callback: Optional[Callable[[int, int, dict], None]] = None) -> dict:
+    """Run full pipeline. Returns report dict; caller handles output and save.
+    progress_callback: optional callable(current_index, total, test_result) forwarded to run_tests()."""
     if not config.connection:
         raise ValueError("connection required for assess (use -c or AIRD_CONNECTION_STRING)")
 
@@ -76,6 +77,7 @@ def run_assess(config: Config) -> dict:
         dry_run=config.dry_run,
         audit=audit if config.audit else None,
         thresholds=thresholds,
+        progress_callback=progress_callback,
     )
 
     if config.dry_run:
