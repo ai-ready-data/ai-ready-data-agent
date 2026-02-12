@@ -24,10 +24,14 @@ Commands are split into **convenience** (one-shot or simple) and **composable** 
 
 | Command | Purpose |
 |--------|---------|
-| **assess** | Full pipeline in one shot: connect → discover → generate tests → execute → score → report → (optional) save → output. Supports **single connection** (one `-c` or env) or **multiple connections** (estate mode: repeatable `-c` or `--connections-file`); in estate mode, one report per run with per-connection sections and optional aggregate summary. Equivalent to running discover, then run, then report, then optionally save, with sensible defaults. |
+| **assess** | Full pipeline in one shot: connect → discover → generate tests → execute → score → report → (optional) save → output. Single connection via `-c` or env. Equivalent to running discover, then run, then report, then optionally save, with sensible defaults. |
+| **init** | Interactive setup wizard for first-time users. Walks through connection, scope, and context configuration. |
 | **history** | List saved assessments from local SQLite. Optional filters: connection, limit. |
 | **diff** | Compare two reports. Input: two assessment ids, or two report files (e.g. `diff <id1> <id2>` or `diff --left report1.json --right report2.json`). |
 | **suites** | List available test suites (e.g. auto, common, snowflake). No side effects. |
+| **compare** | Compare assessment results for two tables side-by-side from the same connection. |
+| **rerun** | Re-run failed tests from the most recent (or specified) assessment and show improvement delta. |
+| **benchmark** | N-way comparison: run assessments on multiple connections (repeatable `-c`, at least 2) and compare results side-by-side. |
 
 ### 2.2 Composable commands
 
@@ -55,9 +59,9 @@ Artifacts are the inputs and outputs that allow composition. Each has a stable s
 |----------|-------------|-------------|-------------|
 | **Inventory** | discover | run, report (for not_assessed) | Schemas, tables, columns; scope and context-aware filtering. |
 | **Results** | run (execute) | report | Raw test results: per test, pass/fail per workload (L1/L2/L3), measured value, thresholds. |
-| **Report** | report, assess (score step) | save, output, diff | Full report: summary, factor_summary, results (with embedded thresholds and direction), not_assessed, target_workload, environment, user_context. Conforms to [report-spec.md](report-spec.md). **Single-connection report:** one connection_fingerprint, one summary, one results list. **Estate report:** when assess is run with multiple connections, report includes per-connection sections (e.g. `platforms`: list of connection_fingerprint, summary, factor_summary, results, inventory) and an aggregate summary. |
+| **Report** | report, assess (score step) | save, output, diff, compare, rerun | Full report: summary, factor_summary, results (with embedded thresholds and direction), not_assessed, target_workload, environment, user_context. Conforms to [report-spec.md](report-spec.md). One connection_fingerprint, one summary, one results list per report. |
 
-Pipeline: **connection(s) + context** → [per connection: discover → **inventory** → run (generate + execute) → **results**] → report (score + render, merge if estate) → **report** → (optional) save, output. Single-connection: one discover → run → report. Estate: N connections → N discover+run → one merged report.
+Pipeline: **connection + context** → discover → **inventory** → run (generate + execute) → **results** → report (score + render) → **report** → (optional) save, output.
 
 ---
 
@@ -65,30 +69,30 @@ Pipeline: **connection(s) + context** → [per connection: discover → **invent
 
 ### 4.1 assess
 
-**Purpose:** Run the full assessment pipeline. Convenience command; equivalent to discover → run → report → [save] → output. Supports **single-connection** (one database) or **multi-connection / estate** (multiple databases in one run).
+**Purpose:** Run the full assessment pipeline. Convenience command; equivalent to discover → run → report → [save] → output. Single connection only.
 
 **Arguments (summary):**
 
 | Argument | Env fallback | Default | Description |
 |----------|--------------|---------|-------------|
-| `--connection`, `-c` | `AIRD_CONNECTION_STRING` (single) | — | Database connection string. **Repeatable:** when given multiple times (or combined with `--connections-file`), all connections are assessed in one run (estate mode). At least one connection required via one or more `-c` or `--connections-file`. |
-| `--connections-file` | `AIRD_CONNECTIONS_FILE` | — | Path to connections manifest (YAML or JSON; extension .yaml, .yml, or .json). List of entries; each entry is a connection string or an object with `connection` and optional `targets` (databases, schemas, tables). See [manifest-spec.md](manifest-spec.md). If not set and no `-c` given, CLI uses default `~/.aird/connections.yaml` when it exists. Combined with any `-c`; together they form the assessment target list. |
-| `--schema`, `-s` | — | all non-system | Schemas to include (repeatable). Applies to all connections. |
-| `--tables`, `-t` | — | — | Specific tables (schema.table); when set, only these tables are in scope. Applies to all connections. |
-| `--suite` | — | auto | Test suite: auto (detect from connection), common, snowflake, etc. Resolved per connection. |
+| `--connection`, `-c` | `AIRD_CONNECTION_STRING` | — | Database connection string. Single connection only; use `benchmark` for multi-connection comparison. |
+| `--schema`, `-s` | — | all non-system | Schemas to include (repeatable). |
+| `--tables`, `-t` | — | — | Specific tables (schema.table); when set, only these tables are in scope. |
+| `--suite` | — | auto | Test suite: auto (detect from connection), common, snowflake, etc. |
 | `--output`, `-o` | `AIRD_OUTPUT` | markdown | Output: `stdout` (JSON), `markdown`, or `json:<path>`. |
 | `--thresholds` | `AIRD_THRESHOLDS` | built-in | Path to custom thresholds JSON. |
-| `--context` | `AIRD_CONTEXT` | — | Path to user context YAML (scope, overrides, target level). Applies to all connections. |
+| `--context` | `AIRD_CONTEXT` | — | Path to user context YAML (scope, overrides, target level). |
+| `--workload` | — | — | Target workload level: `analytics` (L1), `rag` (L2), or `training` (L3). |
+| `--factor` | — | — | Filter to a single factor (e.g. `clean`, `contextual`). When set, only tests for that factor are run. |
+| `--survey` | — | false | Run question-based survey and include results in report. |
+| `--survey-answers` | — | — | Path to YAML of pre-filled survey answers (for non-interactive or demo use). |
 | `--no-save` | — | false | Do not persist report to local history. |
-| `--compare` | — | false | After run, output diff against previous assessment. Single-connection: same connection; estate: implementation-defined (e.g. same connection set or last estate run). |
+| `--compare` | — | false | After run, output diff against previous assessment for the same connection. |
 | `--dry-run` | — | false | Stop after generate; do not execute tests. Output preview (test count, sample). |
 | `--interactive`, `-i` | — | false | Emit structured interview questions (e.g. post-discover, post-results) for agent consumption. |
-| `--log-level` | `AIRD_LOG_LEVEL` | info | Log level: debug, info, warn, error. |
 | `--audit` | `AIRD_AUDIT` | false | Enable audit log: persist all queries and conversation to the same SQLite DB. |
 
-**Behavior (single connection):** When exactly one connection is supplied (one `-c` or env only): connect → discover (with context filters) → generate tests → [if not dry-run] execute → score → build report (single-connection shape: top-level `connection_fingerprint`, `summary`, `results`) → [if not --no-save] save to SQLite → output report. If --compare and save was done, output diff vs previous run for that connection.
-
-**Behavior (estate / multiple connections):** When two or more connections are supplied (multiple `-c` and/or `--connections-file`): for each connection, discover → generate tests → [if not dry-run] execute → collect (connection_fingerprint, results, inventory). Then build one **estate report** with per-connection sections (e.g. `platforms`: list of `{ connection_fingerprint, summary, results, inventory }`) and an **aggregate summary** (e.g. roll-up L1/L2/L3 or per-connection summary table). Save one assessment id for the whole run; output the estate report. If --compare, diff vs previous run (implementation-defined). Failed connections may be recorded in the report; implementation defines fail-fast vs continue-on-error.
+**Behavior:** Connect → discover (with context filters) → generate tests → [if not dry-run] execute → score → build report (top-level `connection_fingerprint`, `summary`, `results`) → [if not --no-save] save to SQLite → output report. When `--compare` is set and save was done, output diff vs previous run for that connection. Output uses Rich colored tables and progress bars when running in a TTY.
 
 ### 4.2 discover
 
@@ -152,13 +156,72 @@ Pipeline: **connection(s) + context** → [per connection: discover → **invent
 
 **Arguments:** None. **Output:** Suite names and short descriptions.
 
+### 4.9 init
+
+**Purpose:** Interactive setup wizard for first-time users. Walks through connection configuration, scope selection, and context setup.
+
+**Arguments:** None.
+
+**Behavior:** Launches an interactive prompt that guides the user through setting up their first assessment. No flags required; all configuration is gathered interactively.
+
+### 4.10 compare
+
+**Purpose:** Compare assessment results for two tables side-by-side from the same connection. Useful for understanding how different tables in the same database score relative to each other.
+
+**Arguments (summary):**
+
+| Argument | Env fallback | Default | Description |
+|----------|--------------|---------|-------------|
+| `--connection`, `-c` | `AIRD_CONNECTION_STRING` | — | Database connection string. |
+| `--tables` | — | — | Comma-separated table names to compare (e.g. `main.t1,main.t2`). |
+| `--suite` | — | auto | Test suite. |
+| `--thresholds` | `AIRD_THRESHOLDS` | built-in | Path to custom thresholds JSON. |
+| `--no-save` | — | false | Do not persist reports to local history. |
+
+**Behavior:** Discovers the specified tables, runs the assessment suite on each, then outputs a side-by-side comparison of results.
+
+### 4.11 rerun
+
+**Purpose:** Re-run only the failed tests from a previous assessment and show the improvement delta.
+
+**Arguments (summary):**
+
+| Argument | Env fallback | Default | Description |
+|----------|--------------|---------|-------------|
+| `--connection`, `-c` | `AIRD_CONNECTION_STRING` | — | Database connection string. |
+| `--id` | — | most recent | Assessment ID to re-run failed tests from. Defaults to the most recent assessment. |
+| `--thresholds` | `AIRD_THRESHOLDS` | built-in | Path to custom thresholds JSON. |
+| `--no-save` | — | false | Do not persist the re-run report to local history. |
+
+**Behavior:** Loads the specified (or most recent) assessment, identifies all failed tests, re-runs only those tests against the connection, then outputs the results with a delta showing which failures were fixed and which remain.
+
+### 4.12 benchmark
+
+**Purpose:** Run assessments on multiple connections and compare results side-by-side. This is the multi-connection comparison command (repeatable `-c`).
+
+**Arguments (summary):**
+
+| Argument | Env fallback | Default | Description |
+|----------|--------------|---------|-------------|
+| `--connection`, `-c` | — | — | Connection string. **Repeatable:** at least 2 required. Each connection is assessed independently. |
+| `--label` | — | auto-generated | Comma-separated labels for each connection (e.g. `prod,staging`). Auto-generated from connection if omitted. |
+| `--suite` | — | auto | Test suite. |
+| `--factor` | — | — | Filter to a single factor (e.g. `clean`, `contextual`). |
+| `--thresholds` | `AIRD_THRESHOLDS` | built-in | Path to custom thresholds JSON. |
+| `--save` | — | false | Persist each individual report to history. |
+| `--list` | — | false | List previous benchmark runs instead of running a new one. |
+
+**Behavior:** For each connection: connect → discover → run → score. Then produce a combined comparison report showing per-connection scores and factor summaries side-by-side. Output uses Rich colored tables when running in a TTY.
+
 ---
 
 ## 5. Configuration and state
 
 **Configuration:**
 
-- **Connection(s):** Single connection via `--connection` / `-c` or `AIRD_CONNECTION_STRING`. For **estate** (multi-connection) runs: repeatable `-c` and/or `--connections-file` (path to a YAML/JSON manifest); env `AIRD_CONNECTIONS_FILE` may supply the path. When no `-c` and no `--connections-file` are given, the CLI uses the default **connections manifest** `~/.aird/connections.yaml` if that file exists. Manifest entries may use `env:VAR_NAME`; the CLI expands from the environment. Connection string format is platform-specific; see the platform support doc in the repo. Example forms: `snowflake://…`, `duckdb://path/to/file`.
+- **Connection:** Single connection via `--connection` / `-c` or `AIRD_CONNECTION_STRING`. Connection string format is platform-specific; see the platform support doc in the repo. Example forms: `snowflake://…`, `duckdb://path/to/file`. For multi-connection comparison, use `benchmark` with repeatable `-c`.
+- **Workload:** Optional target workload via `--workload` on assess: `analytics` (L1), `rag` (L2), or `training` (L3).
+- **Factor filter:** Optional `--factor` on assess and benchmark to restrict tests to a single factor (e.g. `clean`, `contextual`).
 - **Context:** Optional YAML file (scope and overrides). Via `--context` or `AIRD_CONTEXT`. When present, **schemas** and **tables** are applied to discovery (per-target scope overrides context when set). Report includes `user_context` when context is loaded. YAML shape: `schemas: [string]`, `tables: [string]` (optional); future: target_level, exclusions, nullable-by-design, PII, freshness SLAs).
 - **Thresholds:** Optional JSON file (per-requirement L1/L2/L3 thresholds). Via `--thresholds` or `AIRD_THRESHOLDS`. Default: built-in thresholds. JSON shape: `{ "<requirement_key>": { "l1": float, "l2": float, "l3": float }, ... }`; keys are merged over built-in (e.g. `null_rate`, `duplicate_rate`).
 - **Output default:** Via `AIRD_OUTPUT` (e.g. markdown, stdout).
@@ -220,9 +283,10 @@ We diverge:
 
 ## 9. Implementation notes
 
-- The current implementation may expose only **assess**, **history**, **diff**, and **suites**. The composable commands (discover, run, report, save) and the extended diff (by id or by file) are part of this spec for implementation when needed.
-- **assess** can be implemented as a composition of discover → run → report → save (when not --no-save) → output, or as a single flow; the observable behavior and artifacts are what this spec defines. For component boundaries and package layout, see [design-cli-architecture.md](../log/design-cli-architecture.md).
+- All 12 commands are implemented: **assess**, **discover**, **run**, **report**, **save**, **history**, **diff**, **suites**, **init**, **compare**, **rerun**, **benchmark**.
+- **assess** is implemented as a composition of discover → run → report → save (when not --no-save) → output. For component boundaries and package layout, see [design-cli-architecture.md](../log/design-cli-architecture.md).
 - Artifact schemas (inventory, results, report) are defined elsewhere (e.g. agent schema docs or test suite spec); this spec references them and the flow between commands.
+- **Rich UI:** Output uses Rich library for colored tables, progress bars, and formatted reports when running in a TTY. Non-TTY output falls back to plain text for machine consumption.
 
 ---
 
@@ -242,7 +306,10 @@ This section records gaps, ambiguities, and design choices that affect agent and
 
 **Resolved by this spec:**
 
-- **Multi-connection / estate:** assess supports multiple connections (repeatable `-c`, `--connections-file`); report shape extends to estate (per-connection sections + aggregate summary). See [design-multi-connection-estate.md](../log/design-multi-connection-estate.md).
+- **Multi-connection comparison:** The `benchmark` command provides N-way dataset comparison with repeatable `-c`. Single-connection `assess` is kept simple; multi-connection is a separate workflow.
+- **Re-run failed tests:** The `rerun` command targets only failed tests from a previous assessment, reducing iteration time.
+- **Table-level comparison:** The `compare` command enables side-by-side comparison of tables within the same connection.
+- **Interactive setup:** The `init` wizard lowers the barrier for first-time users.
 
 **Gaps and considerations (for implementation or later spec):**
 
