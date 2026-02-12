@@ -18,7 +18,7 @@ The definition answers: *What does this factor mean for the data layer?* It is t
 
 ---
 
-## 2. Required structure of a factor document
+## 2. Required str`ucture of a factor document
 
 A factor document **must** contain the following, in order:
 
