@@ -14,11 +14,13 @@ import re
 from typing import Dict, List, Optional
 
 from agent.config import Config
+from agent import storage
 from agent.discovery import discover
 from agent.run import run_tests
 from agent.report import build_report
 from agent.platform.registry import get_default_suite
 from agent.thresholds import load_thresholds
+from agent.ui.console import get_console, is_interactive
 
 logger = logging.getLogger(__name__)
 
@@ -62,7 +64,16 @@ def run_benchmark(config: Config) -> None:
 
     Expects ``config.benchmark_connections`` to contain at least two connection
     strings (from repeatable ``-c``).
+
+    When ``config.benchmark_list`` is True, lists past benchmarks and returns.
+    When ``config.benchmark_save`` is True, persists each report and creates a
+    benchmark group record.
     """
+    # --list: show past benchmarks and return early
+    if config.benchmark_list:
+        _list_benchmarks(config)
+        return
+
     connections = config.benchmark_connections
     if len(connections) < 2:
         raise ValueError(
@@ -73,22 +84,51 @@ def run_benchmark(config: Config) -> None:
     labels = _parse_labels(config.benchmark_labels, connections)
     thresholds = load_thresholds(config.thresholds_path)
 
+    total_connections = len(connections)
+    console = get_console()
+    interactive = is_interactive()
+
     reports: Dict[str, dict] = {}
     for i, connection in enumerate(connections):
         label = labels[i]
         logger.info("Benchmarking [%s]: %s", label, connection)
 
+        # Progress counter: [1/3] Assessing: Sales...
+        if interactive:
+            console.print(
+                "[bold][{0}/{1}][/bold] Assessing: [header]{2}[/header]…".format(
+                    i + 1, total_connections, label
+                )
+            )
+
         inv = discover(connection)
         suite_name = (
             config.suite if config.suite != "auto" else get_default_suite(connection)
         )
-        results = run_tests(
-            connection,
-            inv,
-            suite_name=suite_name,
-            thresholds=thresholds,
-            factor_filter=config.factor_filter,
-        )
+
+        # Use TestProgressBar for per-dataset test execution in TTY
+        if interactive:
+            from agent.ui.progress import TestProgressBar
+
+            with TestProgressBar() as pb:
+                results = run_tests(
+                    connection,
+                    inv,
+                    suite_name=suite_name,
+                    thresholds=thresholds,
+                    factor_filter=config.factor_filter,
+                    progress_callback=pb.callback,
+                )
+            console.print()  # blank line after progress bar
+        else:
+            results = run_tests(
+                connection,
+                inv,
+                suite_name=suite_name,
+                thresholds=thresholds,
+                factor_filter=config.factor_filter,
+            )
+
         report = build_report(results, connection_fingerprint=connection)
         report["_benchmark_label"] = label
         reports[label] = report

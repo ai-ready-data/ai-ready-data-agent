@@ -12,7 +12,7 @@ import sys
 from typing import Any, Dict, List, Optional
 
 from agent.ui.compare import _extract_factor_stats, _pct
-from agent.ui.console import get_console, is_interactive
+from agent.ui.console import get_console, is_interactive, print_panel
 
 
 # Six assessment factors in canonical order
@@ -90,8 +90,10 @@ def render_benchmark(
 
     if is_interactive():
         _render_rich(names, all_stats, all_factors)
+        _render_summary_rich(names, all_stats, all_factors)
     else:
         _render_plain(names, all_stats, all_factors)
+        _render_summary_plain(names, all_stats, all_factors)
 
 
 # ---------------------------------------------------------------------------
@@ -233,3 +235,100 @@ def _render_plain(
             )
         )
 
+
+
+# ---------------------------------------------------------------------------
+# Summary panel helpers
+# ---------------------------------------------------------------------------
+
+
+def _build_rankings(
+    names: List[str],
+    all_stats: Dict[str, Dict[str, Dict[str, Any]]],
+    factors: List[str],
+) -> List[tuple]:
+    """Return list of (name, avg_l1_pct) sorted descending by L1%."""
+    overall = _compute_overall(names, all_stats, factors)
+    l1_vals = overall[0::2]
+    ranked = sorted(zip(names, l1_vals), key=lambda x: x[1], reverse=True)
+    return ranked
+
+
+def _build_best_per_factor(
+    names: List[str],
+    all_stats: Dict[str, Dict[str, Dict[str, Any]]],
+    factors: List[str],
+) -> List[tuple]:
+    """Return list of (factor, best_name, best_l1_pct) for each factor."""
+    best_list = []  # type: List[tuple]
+    for f in factors:
+        row_vals = _compute_row(f, names, all_stats)
+        l1_vals = row_vals[0::2]
+        if not l1_vals:
+            continue
+        best_val = max(l1_vals)
+        best_idx = l1_vals.index(best_val)
+        best_list.append((f, names[best_idx], best_val))
+    return best_list
+
+
+# ---------------------------------------------------------------------------
+# Rich summary panel
+# ---------------------------------------------------------------------------
+
+
+def _render_summary_rich(
+    names: List[str],
+    all_stats: Dict[str, Dict[str, Dict[str, Any]]],
+    factors: List[str],
+) -> None:
+    """Render a Rich Panel with rankings and best-per-factor below the table."""
+    console = get_console()
+    rankings = _build_rankings(names, all_stats, factors)
+    best_per_factor = _build_best_per_factor(names, all_stats, factors)
+
+    lines = []  # type: List[str]
+
+    # Rankings section
+    lines.append("[bold]Ranking (by overall L1%)[/bold]")
+    medals = ["\U0001f947", "\U0001f948", "\U0001f949"]  # 🥇🥈🥉
+    for rank, (name, pct) in enumerate(rankings):
+        medal = medals[rank] if rank < len(medals) else "  "
+        lines.append("  {0} {1}: {2}%".format(medal, name, pct))
+
+    lines.append("")
+
+    # Best-in-class per factor
+    lines.append("[bold]Best per factor (L1%)[/bold]")
+    for factor, name, pct in best_per_factor:
+        lines.append(
+            "  {0}: [pass]{1}[/pass] ({2}%)".format(factor.title(), name, pct)
+        )
+
+    content = "\n".join(lines)
+    print_panel(content, title="Benchmark Summary")
+
+
+# ---------------------------------------------------------------------------
+# Plain-text summary
+# ---------------------------------------------------------------------------
+
+
+def _render_summary_plain(
+    names: List[str],
+    all_stats: Dict[str, Dict[str, Dict[str, Any]]],
+    factors: List[str],
+) -> None:
+    """Render plain-text summary to stdout."""
+    rankings = _build_rankings(names, all_stats, factors)
+    best_per_factor = _build_best_per_factor(names, all_stats, factors)
+
+    sys.stdout.write("\n--- Benchmark Summary ---\n")
+
+    sys.stdout.write("Ranking (by overall L1%):\n")
+    for rank, (name, pct) in enumerate(rankings, 1):
+        sys.stdout.write("  {0}. {1}: {2}%\n".format(rank, name, pct))
+
+    sys.stdout.write("Best per factor (L1%):\n")
+    for factor, name, pct in best_per_factor:
+        sys.stdout.write("  {0}: {1} ({2}%)\n".format(factor.title(), name, pct))
