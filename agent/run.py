@@ -110,7 +110,7 @@ def run_tests(
             "results": [],
             "dry_run": True,
             "test_count": len(tests),
-            "preview": [{"id": t.get("id"), "factor": t.get("factor"), "requirement": t.get("requirement")} for t in tests[:15]],
+            "preview": [{"id": t.get("id"), "factor": t.get("factor"), "requirement": t.get("requirement"), "target_type": t.get("target_type")} for t in tests],
         }
 
     results_list: List[dict] = []

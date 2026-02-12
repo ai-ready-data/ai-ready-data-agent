@@ -72,7 +72,12 @@ def run_assess(config: Config) -> dict:
     )
 
     if config.dry_run:
-        return {"dry_run": True, "preview": results.get("preview", []), "test_count": results.get("test_count", 0)}
+        return {
+            "dry_run": True,
+            "preview": results.get("preview", []),
+            "test_count": results.get("test_count", 0),
+            "connection": connection,
+        }
 
     question_results = None
     if config.survey:
