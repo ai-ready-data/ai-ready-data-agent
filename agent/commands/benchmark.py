@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 import os
 import re
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from agent.config import Config
 from agent.discovery import discover
@@ -73,7 +73,7 @@ def run_benchmark(config: Config) -> None:
     labels = _parse_labels(config.benchmark_labels, connections)
     thresholds = load_thresholds(config.thresholds_path)
 
-    reports: List[dict] = []
+    reports: Dict[str, dict] = {}
     for i, connection in enumerate(connections):
         label = labels[i]
         logger.info("Benchmarking [%s]: %s", label, connection)
@@ -91,7 +91,7 @@ def run_benchmark(config: Config) -> None:
         )
         report = build_report(results, connection_fingerprint=connection)
         report["_benchmark_label"] = label
-        reports.append(report)
+        reports[label] = report
 
     # Renderer is provided by Task 24 (agent.ui.benchmark).
     # Import is deferred so the module can be created independently.
