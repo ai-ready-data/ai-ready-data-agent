@@ -139,3 +139,55 @@ def run_benchmark(config: Config) -> None:
 
     render_benchmark(reports, labels=labels)
 
+    # --save: persist individual reports and benchmark group
+    if config.benchmark_save:
+        conn = storage.get_connection(config.db_path)
+        try:
+            assessment_ids: List[str] = []
+            for label in labels:
+                aid = storage.save_report(conn, reports[label])
+                assessment_ids.append(aid)
+            bid = storage.save_benchmark(conn, labels, list(connections), assessment_ids)
+        finally:
+            conn.close()
+        import sys
+        sys.stderr.write("Benchmark saved: {0}\n".format(bid))
+
+
+def _list_benchmarks(config: Config) -> None:
+    """Show past benchmark runs as a table (Rich in TTY, plain otherwise)."""
+    import sys
+
+    conn = storage.get_connection(config.db_path)
+    try:
+        items = storage.list_benchmarks(conn, limit=20)
+    finally:
+        conn.close()
+
+    if not items:
+        sys.stderr.write("No benchmarks saved yet.\n")
+        return
+
+    if sys.stdout.isatty():
+        from agent.ui import print_table
+        headers = ["ID", "Date", "Labels", "Datasets"]
+        rows = []
+        for b in items:
+            rows.append([
+                b["id"][:8],
+                b["created_at"],
+                ", ".join(b["labels"]),
+                str(len(b["labels"])),
+            ])
+        print_table(headers, rows, title="Benchmark History")
+    else:
+        for b in items:
+            sys.stdout.write(
+                "{0}\t{1}\t{2}\t{3}\n".format(
+                    b["id"],
+                    b["created_at"],
+                    ",".join(b["labels"]),
+                    len(b["labels"]),
+                )
+            )
+
