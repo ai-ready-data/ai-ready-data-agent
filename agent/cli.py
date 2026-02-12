@@ -70,6 +70,10 @@ _ARG_MAP: dict = {
     "right":                "diff_right",
     "survey_answers":       "survey_answers_path",
     "factor":               "factor_filter",
+    "benchmark_connection": "benchmark_connections",
+    "label":                "benchmark_labels",
+    "save":                 "benchmark_save",
+    "list":                 "benchmark_list",
 }
 
 # Args that need Path() wrapping when present.
@@ -439,6 +443,11 @@ def cmd_rerun(cfg: Config) -> None:
     run_rerun(cfg)
 
 
+def cmd_benchmark(cfg: Config) -> None:
+    from agent.commands.benchmark import run_benchmark
+    run_benchmark(cfg)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="aird", description="AI-Ready Data assessment CLI")
     parser.add_argument("--log-level", default=None, help="Log level")
@@ -533,6 +542,18 @@ def main() -> None:
     p_rerun.add_argument("--thresholds", default=None)
     p_rerun.add_argument("--no-save", action="store_true")
 
+    # benchmark
+    p_bench = subparsers.add_parser("benchmark", help="Run assessment on multiple connections and compare results")
+    p_bench.add_argument("-c", "--connection", action="append", default=[], dest="benchmark_connection",
+                         help="Connection string (repeatable, at least 2 required)")
+    p_bench.add_argument("--label", action="append", default=[], dest="label",
+                         help="Comma-separated labels for each connection (auto-generated if omitted)")
+    p_bench.add_argument("--suite", default="auto")
+    p_bench.add_argument("--factor", default=None, help="Filter to a single factor (e.g., clean, contextual)")
+    p_bench.add_argument("--thresholds", default=None)
+    p_bench.add_argument("--save", action="store_true", dest="save", help="Persist each report to history")
+    p_bench.add_argument("--list", action="store_true", dest="list", help="List previous benchmark runs")
+
     args = parser.parse_args()
 
     # Configure logging before anything else
@@ -570,6 +591,8 @@ def main() -> None:
             cmd_compare(cfg)
         elif args.command == "rerun":
             cmd_rerun(cfg)
+        elif args.command == "benchmark":
+            cmd_benchmark(cfg)
     except UsageError as e:
         logger.error(str(e))
         sys.exit(2)

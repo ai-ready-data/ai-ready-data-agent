@@ -73,6 +73,12 @@ class Config:
     compare_tables: list = field(default_factory=list)  # --tables for compare
     rerun_id: Optional[str] = None  # --id for rerun (defaults to most recent)
 
+    # benchmark
+    benchmark_connections: list = field(default_factory=list)  # repeatable -c for benchmark
+    benchmark_labels: list = field(default_factory=list)  # --label (comma-separated)
+    benchmark_save: bool = False  # --save
+    benchmark_list: bool = False  # --list
+
     @classmethod
     def from_env(cls) -> "Config":
         """Load defaults from environment only."""
