@@ -98,3 +98,35 @@ When the user has applied remediation and wants to re-assess: run assess again w
 For a quicker alternative, use `aird rerun` to re-run only previously failed tests and show the improvement delta without re-running the full assessment.
 
 To compare specific tables within the same assessment, use `aird compare` for a side-by-side view.
+
+## Audit Logging
+
+If audit logging is enabled (see [../audit/SKILL.md](../audit/SKILL.md)), log the assessment results after completion:
+
+```sql
+-- Log to ~/.snowflake/cortex/aird-audit.db
+INSERT INTO assessments (
+    assessment_id,
+    session_id,
+    connection_sanitized,
+    scope_json,
+    results_json,
+    overall_score,
+    l1_pass,
+    l2_pass,
+    l3_pass
+)
+VALUES (
+    '{assessment_id}',
+    '{session_id}',
+    '{connection_with_credentials_removed}',
+    '{json_array_of_tables}',
+    '{full_results_json}',
+    {overall_score},
+    {1_if_l1_pass_else_0},
+    {1_if_l2_pass_else_0},
+    {1_if_l3_pass_else_0}
+);
+```
+
+Replace placeholders with actual values from the assessment report.

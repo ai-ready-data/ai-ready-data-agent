@@ -7,6 +7,10 @@ Portable, agent-agnostic knowledge and workflows for AI-Ready Data assessment. T
 ```
 skills/
 ├── SKILL.md              # Universal entry point (no CLI dependency)
+├── audit/                # Audit logging (optional)
+│   ├── SKILL.md          # Setup and logging instructions
+│   ├── schema.sql        # SQLite schema
+│   └── queries.md        # Analysis queries
 ├── factors/              # Factor definitions: requirements, thresholds, SQL, remediation
 ├── platforms/            # Platform-specific SQL patterns and connection details
 ├── workflows/            # Step-by-step workflow guides (discover, assess, interpret, remediate)
@@ -16,7 +20,7 @@ skills/
 └── README.md             # You are here
 ```
 
-### Two-Layer Design
+### Three-Layer Design
 
 **Layer 1: Portable knowledge** (`skills/factors/`, `skills/platforms/`, `skills/workflows/`)
 
@@ -25,6 +29,10 @@ Self-contained markdown files with everything an agent needs to assess data: fac
 **Layer 2: CLI orchestration** (`skills/cli/`)
 
 For agents with the `aird` CLI available. Provides shell commands that automate the workflow from Layer 1. References Layer 1 for domain knowledge — never duplicates thresholds, SQL, or remediation patterns.
+
+**Layer 3: Audit logging** (`skills/audit/`)
+
+**Enabled by default.** Logs all assessment activity (sessions, commands, queries, results) to a local SQLite database at `~/.snowflake/cortex/aird-audit.db`. Useful for history, debugging, compliance, and tracking improvement over time. Disable with `--no-audit` if needed.
 
 ## How to Use
 

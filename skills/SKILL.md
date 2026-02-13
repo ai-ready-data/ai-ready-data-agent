@@ -49,6 +49,10 @@ When a user asks about AI readiness, determine:
 ```
 skills/
 ├── SKILL.md                    <- You are here (entry point)
+├── audit/
+│   ├── SKILL.md                <- Audit logging setup and instructions
+│   ├── schema.sql              <- SQLite schema for audit database
+│   └── queries.md              <- Useful queries to analyze audit history
 ├── factors/
 │   ├── 0-clean.md              <- Requirements, SQL, thresholds, remediation
 │   ├── 1-contextual.md
@@ -69,7 +73,26 @@ skills/
 └── README.md                   <- Architecture, how to add platforms, how to fork
 ```
 
-### 3. Assessment Workflow
+### 3. Initialize Audit Logging (Default)
+
+**Before starting any assessment**, initialize the audit database and start a session:
+
+```bash
+# Ensure database exists with schema (idempotent)
+sqlite3 ~/.snowflake/cortex/aird-audit.db < skills/audit/schema.sql
+```
+
+```sql
+-- Start session
+INSERT INTO sessions (session_id, started_at, connection_type)
+VALUES (lower(hex(randomblob(16))), datetime('now'), '{platform}');
+```
+
+Store the `session_id` and log all commands, queries, and results throughout the workflow. See [audit/SKILL.md](audit/SKILL.md) for full logging details.
+
+To disable audit logging, the user must explicitly request `--no-audit`.
+
+### 4. Assessment Workflow
 
 **Phase 1: Connect & Scope**
 1. Confirm database connection (use active connection or ask)
