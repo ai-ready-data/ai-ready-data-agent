@@ -91,8 +91,9 @@ Pipeline: **connection + context** → discover → **inventory** → run (gener
 | `--dry-run` | — | false | Stop after generate; do not execute tests. Output preview (test count, sample). |
 | `--interactive`, `-i` | — | false | Emit structured interview questions (e.g. post-discover, post-results) for agent consumption. |
 | `--audit` | `AIRD_AUDIT` | false | Enable audit log: persist all queries and conversation to the same SQLite DB. |
+| `--product` | — | — | Assess only the named data product from the context file. Requires `--context` with `data_products` defined. |
 
-**Behavior:** Connect → discover (with context filters) → generate tests → [if not dry-run] execute → score → build report (top-level `connection_fingerprint`, `summary`, `results`) → [if not --no-save] save to SQLite → output report. When `--compare` is set and save was done, output diff vs previous run for that connection. Output uses Rich colored tables and progress bars when running in a TTY.
+**Behavior:** Connect → discover (with context filters) → generate tests → [if not dry-run] execute → score → build report (top-level `connection_fingerprint`, `summary`, `results`) → [if not --no-save] save to SQLite → output report. When `--compare` is set and save was done, output diff vs previous run for that connection. When `--product` is set, only the named product's assets are assessed and the report is scoped to that product. When context defines `data_products` but `--product` is not set, all products are assessed and the report includes per-product sections with an aggregate summary. Output uses Rich colored tables and progress bars when running in a TTY.
 
 ### 4.2 discover
 
@@ -138,9 +139,9 @@ Pipeline: **connection + context** → discover → **inventory** → run (gener
 
 **Purpose:** List saved assessments.
 
-**Arguments (summary):** `--connection` (filter by connection), `--limit`, `-n` (default 20).
+**Arguments (summary):** `--connection` (filter by connection), `--product` (filter by data product name), `--limit`, `-n` (default 20).
 
-**Output:** Table (e.g. id, timestamp, tables, L1/L2/L3 scores, connection).
+**Output:** Table (e.g. id, timestamp, tables, L1/L2/L3 scores, connection, data product).
 
 ### 4.7 diff
 
@@ -222,7 +223,8 @@ Pipeline: **connection + context** → discover → **inventory** → run (gener
 - **Connection:** Single connection via `--connection` / `-c` or `AIRD_CONNECTION_STRING`. Connection string format is platform-specific; see the platform support doc in the repo. Example forms: `snowflake://…`, `duckdb://path/to/file`. For multi-connection comparison, use `benchmark` with repeatable `-c`.
 - **Workload:** Optional target workload via `--workload` on assess: `analytics` (L1), `rag` (L2), or `training` (L3).
 - **Factor filter:** Optional `--factor` on assess and benchmark to restrict tests to a single factor (e.g. `clean`, `contextual`).
-- **Context:** Optional YAML file (scope and overrides). Via `--context` or `AIRD_CONTEXT`. When present, **schemas** and **tables** are applied to discovery (per-target scope overrides context when set). Report includes `user_context` when context is loaded. YAML shape: `schemas: [string]`, `tables: [string]` (optional); future: target_level, exclusions, nullable-by-design, PII, freshness SLAs).
+- **Context:** Optional YAML file (scope and overrides). Via `--context` or `AIRD_CONTEXT`. When present, **schemas** and **tables** are applied to discovery (per-target scope overrides context when set). Report includes `user_context` when context is loaded. YAML shape: `schemas: [string]`, `tables: [string]` (optional); future: target_level, exclusions, nullable-by-design, PII, freshness SLAs). The context file also supports an optional **data_products** key for defining named groups of data assets as the unit of assessment. See **Data products in context** below.
+- **Data product filter:** Optional `--product <name>` on assess and history. When set with a context file that defines `data_products`, assess only that product. On history, filter to assessments for that product.
 - **Thresholds:** Optional JSON file (per-requirement L1/L2/L3 thresholds). Via `--thresholds` or `AIRD_THRESHOLDS`. Default: built-in thresholds. JSON shape: `{ "<requirement_key>": { "l1": float, "l2": float, "l3": float }, ... }`; keys are merged over built-in (e.g. `null_rate`, `duplicate_rate`).
 - **Output default:** Via `AIRD_OUTPUT` (e.g. markdown, stdout).
 - **Log level:** Via `AIRD_LOG_LEVEL`.
@@ -237,6 +239,45 @@ Pipeline: **connection + context** → discover → **inventory** → run (gener
   - **Queries:** Every query executed during a run (e.g. per test: query text, target, factor/requirement, assessment_id, timestamp). No redaction or size limit; full query text is stored.
   - **Conversation:** All conversation with the user (e.g. interview questions emitted, user answers, phase, assessment_id or session id, timestamp). Full content is stored. Conversation is recorded when interactive phases run (e.g. `--interactive` on assess).
   Audit applies to any command that executes queries (assess; run when used in a composed flow). Composable commands that execute queries support `--audit` so that a composed pipeline can enable audit on `run`. Retention and size are not limited for now; everything is kept. The feature is off by default so users must opt in.
+
+**Data products in context:**
+
+The context YAML supports an optional `data_products` key for organizing data assets into named, business-meaningful groups. When present, the agent scopes discovery and assessment to those products, and the report groups results per product with an aggregate summary.
+
+```yaml
+# Existing scope keys (unchanged)
+schemas: [public, analytics]
+tables: [public.customers, analytics.events]
+
+# Data products: named groups of tables assessed together
+data_products:
+  - name: customer_360
+    owner: data-platform-team       # optional
+    workload: rag                   # optional per-product workload override
+    tables:
+      - public.customers
+      - public.addresses
+      - public.orders
+  - name: event_stream
+    owner: analytics-eng
+    workload: analytics
+    schemas:
+      - events                      # include all tables in this schema
+```
+
+**Data product entry shape:**
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | yes | Unique name for the data product (e.g. `customer_360`). |
+| `owner` | no | Team or person responsible for this product. |
+| `workload` | no | Per-product workload override: `analytics` (L1), `rag` (L2), or `training` (L3). When absent, uses the global `--workload` flag or null. |
+| `tables` | no | List of fully qualified table names (e.g. `schema.table`). |
+| `schemas` | no | List of schema names; all tables in these schemas belong to the product. |
+
+At least one of `tables` or `schemas` must be present per product.
+
+When `data_products` is present, the agent assesses each product independently and produces per-product summaries in the report. When absent, behavior is unchanged (all discovered assets assessed as a single set). The `--product <name>` flag on `assess` restricts a run to a single product from the context file.
 
 ---
 

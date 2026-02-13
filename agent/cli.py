@@ -65,6 +65,7 @@ _ARG_MAP: dict = {
     "report":               "report_path",
     "id":                   "report_id",
     "connection_filter":    "history_connection_filter",
+    "product_filter":       "history_product_filter",
     "limit":                "history_limit",
     "left":                 "diff_left",
     "right":                "diff_right",
@@ -338,6 +339,7 @@ def cmd_history(cfg: Config) -> None:
         items = storage.list_assessments(
             conn,
             connection_filter=cfg.history_connection_filter,
+            data_product_filter=cfg.history_product_filter,
             limit=cfg.history_limit,
         )
     finally:
@@ -345,7 +347,7 @@ def cmd_history(cfg: Config) -> None:
 
     if sys.stdout.isatty():
         from agent.ui import print_table
-        headers = ["ID", "Date", "L1%", "L2%", "L3%", "Connection"]
+        headers = ["ID", "Date", "L1%", "L2%", "L3%", "Connection", "Product"]
         rows = []
         for a in items:
             s = a.get("summary", {})
@@ -356,12 +358,15 @@ def cmd_history(cfg: Config) -> None:
                 f"{s.get('l2_pct', 0)}%",
                 f"{s.get('l3_pct', 0)}%",
                 a.get("connection_fingerprint", ""),
+                a.get("data_product", ""),
             ])
         print_table(headers, rows, title="Assessment History")
     else:
         for a in items:
             s = a.get("summary", {})
-            _write_stdout(f"{a['id']}\t{a['created_at']}\tL1:{s.get('l1_pct', 0)}%\tL2:{s.get('l2_pct', 0)}%\tL3:{s.get('l3_pct', 0)}%\t{a.get('connection_fingerprint', '')}")
+            product = a.get("data_product", "")
+            product_suffix = f"\t{product}" if product else ""
+            _write_stdout(f"{a['id']}\t{a['created_at']}\tL1:{s.get('l1_pct', 0)}%\tL2:{s.get('l2_pct', 0)}%\tL3:{s.get('l3_pct', 0)}%\t{a.get('connection_fingerprint', '')}{product_suffix}")
 
 
 def cmd_diff(cfg: Config) -> None:
@@ -473,6 +478,7 @@ def main() -> None:
     p_assess.add_argument("--survey", action="store_true", help="Run question-based survey and include in report")
     p_assess.add_argument("--survey-answers", default=None, help="Path to YAML of pre-filled answers (for non-interactive demo)")
     p_assess.add_argument("--factor", default=None, help="Filter to a single factor (e.g., clean, contextual)")
+    p_assess.add_argument("--product", default=None, help="Assess only the named data product from context file")
 
     # discover
     p_disc = subparsers.add_parser("discover", help="Connect and output inventory")
@@ -511,6 +517,7 @@ def main() -> None:
     # history
     p_hist = subparsers.add_parser("history", help="List saved assessments")
     p_hist.add_argument("--connection", default=None, dest="connection_filter")
+    p_hist.add_argument("--product", default=None, dest="product_filter", help="Filter by data product name")
     p_hist.add_argument("-n", "--limit", type=int, default=20)
 
     # diff

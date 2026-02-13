@@ -47,6 +47,66 @@ def _build_factor_summary(results_list: list[dict]) -> list[dict]:
     return out
 
 
+def _build_summary(results_list: list[dict]) -> dict:
+    """Build aggregate summary from a flat results list."""
+    l1_pass = sum(1 for r in results_list if r.get("l1_pass"))
+    l2_pass = sum(1 for r in results_list if r.get("l2_pass"))
+    l3_pass = sum(1 for r in results_list if r.get("l3_pass"))
+    total = len(results_list) or 1
+    return {
+        "total_tests": len(results_list),
+        "l1_pass": l1_pass,
+        "l2_pass": l2_pass,
+        "l3_pass": l3_pass,
+        "l1_pct": round(100 * l1_pass / total, 1),
+        "l2_pct": round(100 * l2_pass / total, 1),
+        "l3_pct": round(100 * l3_pass / total, 1),
+    }
+
+
+def _result_belongs_to_product(result: dict, product: dict) -> bool:
+    """Check if a test result belongs to a data product based on its test_id.
+
+    test_id format is e.g. "null_rate|schema|table|column" or "dup_rate|schema|table".
+    Product assets are table identifiers like "schema.table" or schema names.
+    """
+    test_id = result.get("test_id", "")
+    parts = test_id.split("|")
+    if len(parts) < 3:
+        return False
+    result_schema = parts[1]
+    result_table = parts[2]
+    result_fqn = f"{result_schema}.{result_table}"
+
+    # Check against explicit tables
+    for table in product.get("tables", []):
+        if result_fqn == table or result_table == table:
+            return True
+
+    # Check against schemas (all tables in the schema belong to the product)
+    for schema in product.get("schemas", []):
+        if result_schema == schema:
+            return True
+
+    return False
+
+
+def _build_data_product_reports(results_list: list[dict], data_products: list[dict]) -> list[dict]:
+    """Build per-data-product report objects from results and product definitions."""
+    product_reports: list[dict] = []
+    for product in data_products:
+        product_results = [r for r in results_list if _result_belongs_to_product(r, product)]
+        product_reports.append({
+            "name": product.get("name", ""),
+            "owner": product.get("owner"),
+            "target_workload": product.get("workload"),
+            "assets": product.get("tables", []) + [f"{s}.*" for s in product.get("schemas", [])],
+            "summary": _build_summary(product_results),
+            "factor_summary": _build_factor_summary(product_results),
+        })
+    return product_reports
+
+
 # ---------------------------------------------------------------------------
 # Build report
 # ---------------------------------------------------------------------------
@@ -59,23 +119,17 @@ def build_report(
     connection_fingerprint: str = "",
     question_results: Optional[list] = None,
     target_workload: Optional[str] = None,
+    data_products: Optional[List[dict]] = None,
 ) -> dict:
-    """Build full report dict from results. Conforms to report-spec.md."""
+    """Build full report dict from results. Conforms to report-spec.md.
+
+    When data_products is provided (list of product definitions from context YAML),
+    the report includes per-product summaries and factor breakdowns. The top-level
+    summary and factor_summary are the aggregate across all products.
+    """
     created = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     results_list = results.get("results", [])
-    l1_pass = sum(1 for r in results_list if r.get("l1_pass"))
-    l2_pass = sum(1 for r in results_list if r.get("l2_pass"))
-    l3_pass = sum(1 for r in results_list if r.get("l3_pass"))
-    total = len(results_list) or 1
-    summary = {
-        "total_tests": len(results_list),
-        "l1_pass": l1_pass,
-        "l2_pass": l2_pass,
-        "l3_pass": l3_pass,
-        "l1_pct": round(100 * l1_pass / total, 1),
-        "l2_pct": round(100 * l2_pass / total, 1),
-        "l3_pct": round(100 * l3_pass / total, 1),
-    }
+    summary = _build_summary(results_list)
     out: dict[str, Any] = {
         "created_at": created,
         "connection_fingerprint": connection_fingerprint,
@@ -90,6 +144,8 @@ def build_report(
     }
     if question_results is not None:
         out["question_results"] = question_results
+    if data_products:
+        out["data_products"] = _build_data_product_reports(results_list, data_products)
     return out
 
 
@@ -141,15 +197,17 @@ def _pass_icon(passed: bool) -> str:
     return "PASS" if passed else "FAIL"
 
 
-def _render_factor_section(factor_name: str, factor_results: List[dict], factor_sum: dict, target_level: Optional[str] = None) -> List[str]:
+def _render_factor_section(factor_name: str, factor_results: List[dict], factor_sum: dict, target_level: Optional[str] = None, heading_level: int = 2) -> List[str]:
     """Render a single factor section with summary line and results table.
     
     If target_level is specified (l1, l2, l3), shows focused single-column output.
-    Otherwise shows all three levels.
+    Otherwise shows all three levels. heading_level controls the markdown heading
+    depth (2 = ##, 3 = ###) to support nesting under data product sections.
     """
     lines: list[str] = []
     display_name = factor_name.capitalize()
-    lines.append(f"## Factor: {display_name}")
+    prefix = "#" * heading_level
+    lines.append(f"{prefix} Factor: {display_name}")
     lines.append("")
 
     t = factor_sum.get("total_tests", 0)
@@ -214,31 +272,11 @@ def _render_factor_section(factor_name: str, factor_results: List[dict], factor_
     return lines
 
 
-def report_to_markdown(report: dict) -> str:
-    """Render report as markdown.
-
-    Rendering follows the canonical section order defined in report-spec.md.
-    """
-    s = report.get("summary", {})
-    tw = report.get("target_workload")
-    tw_label = _WORKLOAD_LABELS.get(tw, "Not specified") if tw else "Not specified"
-    # Convert workload name to level (e.g., "rag" -> "l2")
-    target_level = _WORKLOAD_TO_LEVEL.get(tw) if tw else None
-
-    lines = [
-        "# AI-Ready Data Assessment Report",
-        "",
-        f"**Created:** {report.get('created_at', '')}",
-        f"**Connection:** {report.get('connection_fingerprint', '')}",
-        f"**Target workload:** {tw_label}",
-        "",
-        "## Summary",
-        "",
-    ]
-    
+def _render_summary_lines(s: dict, target_level: Optional[str] = None) -> List[str]:
+    """Render summary lines for aggregate or per-product summary."""
+    lines: list[str] = []
     total = s.get('total_tests', 0)
     if target_level:
-        # Focused summary for target workload
         level_pass = s.get(f'{target_level}_pass', 0)
         level_pct = s.get(f'{target_level}_pct', 0)
         level_label = {"l1": "Analytics", "l2": "RAG", "l3": "Training"}.get(target_level, target_level.upper())
@@ -246,7 +284,6 @@ def report_to_markdown(report: dict) -> str:
         lines.append(f"**{level_label} Readiness:** {level_pass}/{total} ({level_pct}%) — {verdict}")
         lines.append("")
     else:
-        # Full summary with all levels
         lines.extend([
             f"- Total tests: {total}",
             f"- L1 pass: {s.get('l1_pass', 0)}/{total} ({s.get('l1_pct', 0)}%)",
@@ -254,16 +291,122 @@ def report_to_markdown(report: dict) -> str:
             f"- L3 pass: {s.get('l3_pass', 0)}/{total} ({s.get('l3_pct', 0)}%)",
             "",
         ])
+    return lines
 
-    # Factor-by-factor breakdown
-    factor_summaries = {fs["factor"]: fs for fs in report.get("factor_summary", [])}
-    results_by_factor: dict[str, list[dict]] = defaultdict(list)
-    for r in report.get("results", []):
-        results_by_factor[r.get("factor", "unknown")].append(r)
 
-    for factor in sorted(results_by_factor):
+def _render_data_product_section(product: dict, all_results: List[dict], global_target_level: Optional[str] = None) -> List[str]:
+    """Render a data product section with its own summary and factor breakdown."""
+    lines: list[str] = []
+    name = product.get("name", "Unnamed")
+    owner = product.get("owner")
+    workload = product.get("target_workload")
+    assets = product.get("assets", [])
+
+    lines.append(f"## Data Product: {name}")
+    lines.append("")
+
+    meta_parts: list[str] = []
+    if owner:
+        meta_parts.append(f"**Owner:** {owner}")
+    if workload:
+        wl_label = _WORKLOAD_LABELS.get(workload, workload)
+        meta_parts.append(f"**Workload:** {wl_label}")
+    if meta_parts:
+        lines.append(" | ".join(meta_parts))
+    if assets:
+        lines.append(f"**Assets:** {', '.join(assets)}")
+    lines.append("")
+
+    # Use per-product workload override if set, else fall back to global
+    product_target_level = _WORKLOAD_TO_LEVEL.get(workload) if workload else global_target_level
+
+    # Per-product summary
+    ps = product.get("summary", {})
+    lines.extend(_render_summary_lines(ps, product_target_level))
+
+    # Per-product factor breakdown
+    factor_summaries = {fs["factor"]: fs for fs in product.get("factor_summary", [])}
+
+    # Filter all_results to this product's results for rendering
+    product_results_by_factor: dict[str, list[dict]] = defaultdict(list)
+    for r in all_results:
+        if _result_belongs_to_product_report(r, product):
+            product_results_by_factor[r.get("factor", "unknown")].append(r)
+
+    for factor in sorted(product_results_by_factor):
         fs = factor_summaries.get(factor, {})
-        lines.extend(_render_factor_section(factor, results_by_factor[factor], fs, target_level))
+        lines.extend(_render_factor_section(factor, product_results_by_factor[factor], fs, product_target_level, heading_level=3))
+
+    return lines
+
+
+def _result_belongs_to_product_report(result: dict, product_report: dict) -> bool:
+    """Check if a result belongs to a product report object (from the report, not the context).
+
+    Uses the product's assets list which contains entries like "schema.table" or "schema.*".
+    """
+    test_id = result.get("test_id", "")
+    parts = test_id.split("|")
+    if len(parts) < 3:
+        return False
+    result_schema = parts[1]
+    result_table = parts[2]
+    result_fqn = f"{result_schema}.{result_table}"
+
+    for asset in product_report.get("assets", []):
+        if asset.endswith(".*"):
+            # Schema wildcard: "events.*" matches all tables in schema "events"
+            schema = asset[:-2]
+            if result_schema == schema:
+                return True
+        elif result_fqn == asset or result_table == asset:
+            return True
+    return False
+
+
+def report_to_markdown(report: dict) -> str:
+    """Render report as markdown.
+
+    Rendering follows the canonical section order defined in report-spec.md.
+    When data_products are present, renders per-product sections with an
+    aggregate summary. Otherwise renders the flat factor-by-factor view.
+    """
+    s = report.get("summary", {})
+    tw = report.get("target_workload")
+    tw_label = _WORKLOAD_LABELS.get(tw, "Not specified") if tw else "Not specified"
+    # Convert workload name to level (e.g., "rag" -> "l2")
+    target_level = _WORKLOAD_TO_LEVEL.get(tw) if tw else None
+    data_products = report.get("data_products")
+    has_products = bool(data_products)
+
+    lines = [
+        "# AI-Ready Data Assessment Report",
+        "",
+        f"**Created:** {report.get('created_at', '')}",
+        f"**Connection:** {report.get('connection_fingerprint', '')}",
+        f"**Target workload:** {tw_label}",
+    ]
+    if has_products:
+        lines.append(f"**Data products:** {len(data_products)}")
+    lines.extend(["", f"## Summary{' (Aggregate)' if has_products else ''}", ""])
+
+    lines.extend(_render_summary_lines(s, target_level))
+
+    if has_products:
+        # Render per-product sections
+        all_results = report.get("results", [])
+        for product in data_products:
+            lines.extend(_render_data_product_section(product, all_results, target_level))
+    else:
+        # Flat factor-by-factor breakdown (original behavior)
+        factor_summaries = {fs["factor"]: fs for fs in report.get("factor_summary", [])}
+        results_by_factor: dict[str, list[dict]] = defaultdict(list)
+        for r in report.get("results", []):
+            results_by_factor[r.get("factor", "unknown")].append(r)
+
+        for factor in sorted(results_by_factor):
+            fs = factor_summaries.get(factor, {})
+            lines.extend(_render_factor_section(factor, results_by_factor[factor], fs, target_level))
 
     # Survey results
     qr = report.get("question_results")

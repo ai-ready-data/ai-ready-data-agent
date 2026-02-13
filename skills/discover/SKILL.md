@@ -54,7 +54,22 @@ Summarize for the user:
 - List schemas with table counts (e.g. "main: 3 tables")
 - Optionally list table names if the set is small
 
-### Step 3: Confirm Scope (Phase 2 Interview)
+### Step 3: Data Products (optional)
+
+If the context file defines `data_products`, skip this step (products are already defined).
+
+If no data products are defined, ask:
+
+1. "Would you like to organize these tables into **data products** (named groups of related tables, e.g. 'customer_360', 'event_stream'), or assess everything as a single set?"
+
+If the user wants data products:
+- Help them name each product and assign tables to it.
+- Optionally ask for an owner and per-product workload override.
+- Record in the context YAML under `data_products` (see [references/context-file.md](../references/context-file.md)).
+
+If the user does not want products, proceed with all discovered tables as a single unnamed set (existing behavior).
+
+### Step 4: Confirm Scope (Phase 2 Interview)
 
 **Load** [interview/SKILL.md](../interview/SKILL.md) (Phase 2: post-discovery)
 
@@ -71,4 +86,5 @@ If the user wants to exclude schemas or tables, note them. They can be passed as
 
 - Inventory (in memory or in `inventory.json`)
 - User-confirmed scope (and any exclusions)
+- Data product definitions (if the user organized tables into products)
 - Ready to proceed to [assess/SKILL.md](../assess/SKILL.md)

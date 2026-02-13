@@ -29,6 +29,7 @@ def _init_db(conn: sqlite3.Connection) -> None:
             id TEXT PRIMARY KEY,
             created_at TEXT NOT NULL,
             connection_fingerprint TEXT,
+            data_product TEXT,
             report_json TEXT NOT NULL
         );
 
@@ -62,6 +63,11 @@ def _init_db(conn: sqlite3.Connection) -> None:
         );
     """)
     conn.execute("INSERT OR IGNORE INTO _schema (version) VALUES (?)", (SCHEMA_VERSION,))
+    # Migration: add data_product column if missing (for databases created before this column existed)
+    try:
+        conn.execute("SELECT data_product FROM assessments LIMIT 0")
+    except sqlite3.OperationalError:
+        conn.execute("ALTER TABLE assessments ADD COLUMN data_product TEXT")
 
 
 def get_connection(db_path: Path) -> sqlite3.Connection:
@@ -72,14 +78,18 @@ def get_connection(db_path: Path) -> sqlite3.Connection:
     return conn
 
 
-def save_report(conn: sqlite3.Connection, report: dict) -> str:
-    """Persist report JSON; return assessment id (UUID)."""
+def save_report(conn: sqlite3.Connection, report: dict, *, data_product: Optional[str] = None) -> str:
+    """Persist report JSON; return assessment id (UUID).
+
+    When data_product is provided, the assessment is tagged with that product name
+    so it can be filtered in history and used for product-level diffing.
+    """
     aid = str(uuid.uuid4())
     created_at = report.get("created_at") or datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     fingerprint = report.get("connection_fingerprint") or ""
     conn.execute(
-        "INSERT INTO assessments (id, created_at, connection_fingerprint, report_json) VALUES (?, ?, ?, ?)",
-        (aid, created_at, fingerprint, json.dumps(report, cls=DecimalEncoder)),
+        "INSERT INTO assessments (id, created_at, connection_fingerprint, data_product, report_json) VALUES (?, ?, ?, ?, ?)",
+        (aid, created_at, fingerprint, data_product, json.dumps(report, cls=DecimalEncoder)),
     )
     conn.commit()
     return aid
@@ -88,28 +98,37 @@ def save_report(conn: sqlite3.Connection, report: dict) -> str:
 def list_assessments(
     conn: sqlite3.Connection,
     connection_filter: Optional[str] = None,
+    data_product_filter: Optional[str] = None,
     limit: int = 20,
 ) -> list[dict]:
-    """List saved assessments; optional filter by connection fingerprint."""
+    """List saved assessments; optional filter by connection fingerprint and/or data product."""
+    conditions: list[str] = []
+    params: list = []
     if connection_filter:
-        rows = conn.execute(
-            "SELECT id, created_at, connection_fingerprint, report_json FROM assessments WHERE connection_fingerprint = ? ORDER BY created_at DESC LIMIT ?",
-            (connection_filter, limit),
-        ).fetchall()
-    else:
-        rows = conn.execute(
-            "SELECT id, created_at, connection_fingerprint, report_json FROM assessments ORDER BY created_at DESC LIMIT ?",
-            (limit,),
-        ).fetchall()
+        conditions.append("connection_fingerprint = ?")
+        params.append(connection_filter)
+    if data_product_filter:
+        conditions.append("data_product = ?")
+        params.append(data_product_filter)
+
+    where = f" WHERE {' AND '.join(conditions)}" if conditions else ""
+    params.append(limit)
+    rows = conn.execute(
+        f"SELECT id, created_at, connection_fingerprint, data_product, report_json FROM assessments{where} ORDER BY created_at DESC LIMIT ?",
+        params,
+    ).fetchall()
     out = []
     for row in rows:
         r = json.loads(row["report_json"])
-        out.append({
+        entry: dict = {
             "id": row["id"],
             "created_at": row["created_at"],
             "connection_fingerprint": row["connection_fingerprint"],
             "summary": r.get("summary", {}),
-        })
+        }
+        if row["data_product"]:
+            entry["data_product"] = row["data_product"]
+        out.append(entry)
     return out
 
 

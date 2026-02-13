@@ -35,6 +35,22 @@ A single-connection report is produced by `aird assess` (one connection) or `air
 | `inventory` | object or null | yes | Discovery metadata (schemas, tables, columns). Null when not available. |
 | `user_context` | object | yes | Context from user YAML (schemas, tables, target_level, etc.). Empty object `{}` when not provided. |
 | `environment` | object | yes | Reserved for platform version, driver version, etc. Empty object `{}` for now. |
+| `data_products` | array | no | Per-data-product report objects. Present when context defines `data_products`. See **Data product report object**. |
+
+When `data_products` is present, the top-level `summary` and `factor_summary` represent the aggregate across all products. The flat `results` list remains unchanged (each result's `test_id` encodes schema.table, which maps back to a product). When `data_products` is absent, behavior is identical to a report without products.
+
+### Data product report object
+
+Each entry in the `data_products` array represents one named data product and its scoped assessment results.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | string | Data product name (e.g. `"customer_360"`). |
+| `owner` | string or null | Owner team or person. Null when not specified. |
+| `target_workload` | string or null | Per-product workload override (`"l1"`, `"l2"`, `"l3"`, or `null`). |
+| `assets` | array | List of table identifiers (e.g. `["public.customers", "public.orders"]`) belonging to this product. |
+| `summary` | object | Same shape as **Summary object**, scoped to this product's assets. |
+| `factor_summary` | array | Same shape as **Factor summary object**, scoped to this product's assets. |
 
 ### Summary object
 
@@ -126,7 +142,7 @@ The top-level `summary` and `aggregate_summary` are the same object in estate mo
 
 The markdown output (`report_to_markdown`) follows this section order. The format is designed for both human reading and agent presentation.
 
-### 4.1 Single-connection report
+### 4.1 Single-connection report (no data products)
 
 ```
 # AI-Ready Data Assessment Report
@@ -175,7 +191,65 @@ L1: X/N (P%) | L2: X/N (P%) | L3: X/N (P%)
 - Columns: N
 ```
 
-### 4.2 Estate report
+### 4.2 Single-connection report (with data products)
+
+When the context defines `data_products`, the report renders per-product sections with an aggregate summary at the top.
+
+```
+# AI-Ready Data Assessment Report
+
+**Created:** <created_at>
+**Connection:** <connection_fingerprint>
+**Target workload:** <target_workload or "Not specified">
+**Data products:** N
+
+## Summary (Aggregate)
+
+- Total tests: N
+- L1 pass: X/N (P%)
+- L2 pass: X/N (P%)
+- L3 pass: X/N (P%)
+
+## Data Product: customer_360
+
+**Owner:** data-platform-team | **Workload:** RAG (L2)
+**Assets:** public.customers, public.addresses, public.orders
+
+L1: X/N (P%) | L2: X/N (P%) | L3: X/N (P%)
+
+### Factor: Clean
+
+| Test | Requirement | Measured | Threshold (L1/L2/L3) | Direction | L1 | L2 | L3 |
+|------|-------------|----------|----------------------|-----------|----|----|-----|
+| test_id | requirement_key | 0.15 | 0.20 / 0.05 / 0.01 | lte | PASS | FAIL | FAIL |
+
+### Factor: Contextual
+
+(same structure)
+
+## Data Product: event_stream
+
+**Owner:** analytics-eng | **Workload:** Analytics (L1)
+**Assets:** events.*
+
+(same factor structure)
+
+## Survey Results
+
+(if question_results present)
+
+## Not Assessed
+
+(if not_assessed is non-empty)
+
+## Appendix: Inventory
+
+- Schemas: N
+- Tables: N
+- Columns: N
+```
+
+### 4.3 Estate report
 
 ```
 # AI-Ready Data Assessment Report (Estate)

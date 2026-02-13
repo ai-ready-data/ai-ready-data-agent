@@ -107,12 +107,33 @@ def run_assess(config: Config, *, progress_callback: Optional[Callable[[int, int
         question_results = run_survey(questions=questions, answers=answers, interactive=config.interactive)
 
     target_workload = config.target_workload or (context or {}).get("target_level") or None
+
+    # Resolve data products from context
+    data_products = None
+    product_name = None
+    if context and context.get("data_products"):
+        all_products = context["data_products"]
+        if config.product:
+            # Filter to a single product
+            matched = [p for p in all_products if p.get("name") == config.product]
+            if not matched:
+                available = [p.get("name", "?") for p in all_products]
+                raise ValueError(
+                    f"Data product {config.product!r} not found in context. "
+                    f"Available: {', '.join(available)}"
+                )
+            data_products = matched
+            product_name = config.product
+        else:
+            data_products = all_products
+
     report = build_report(
         results,
         inventory=inv,
         connection_fingerprint=_fingerprint(connection),
         question_results=question_results,
         target_workload=target_workload,
+        data_products=data_products,
     )
     if context:
         report["user_context"] = context
@@ -120,7 +141,7 @@ def run_assess(config: Config, *, progress_callback: Optional[Callable[[int, int
     if not config.no_save:
         conn = storage.get_connection(config.db_path)
         try:
-            aid = storage.save_report(conn, report)
+            aid = storage.save_report(conn, report, data_product=product_name)
             report["assessment_id"] = aid
             if config.audit:
                 audit.assessment_id = aid

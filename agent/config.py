@@ -60,8 +60,12 @@ class Config:
     # report --id
     report_id: Optional[str] = None
 
+    # Data product
+    product: Optional[str] = None  # --product: filter to a named data product from context
+
     # history
     history_connection_filter: Optional[str] = None
+    history_product_filter: Optional[str] = None
     history_limit: int = 20
 
     # diff

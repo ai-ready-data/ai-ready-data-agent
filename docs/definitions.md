@@ -18,9 +18,17 @@ An **AI system** performs inference: it accepts inputs, applies a learned functi
 
 ---
 
+## Data product
+
+A **data product** is a named, bounded set of data assets maintained by a defined owner to serve a specific business function. It is the primary unit of assessment. The agent evaluates data products against the six factors; a platform's AI-readiness is the aggregate readiness of its data products.
+
+A data product has a **name** (user-declared, e.g. "customer_360"), an optional **owner** (team or person), a set of **assets** (tables, schemas, or patterns), and an optional **target workload** (per-product override of L1/L2/L3). When no data products are defined, the agent treats all discovered assets as a single unnamed product, preserving backward compatibility.
+
+---
+
 ## Data asset
 
-A **data asset** is a concrete object of assessment: e.g. a schema, table, or column in a relational system, or an equivalent unit in non-SQL platforms. Tests are run *against* data assets; some tests also check **platform capabilities** (e.g. whether the platform exposes lineage, masking, or freshness metadata).
+A **data asset** is a concrete object within a data product: e.g. a table, column, or schema in a relational system, or an equivalent unit in non-SQL platforms. Tests are run *against* data assets; results roll up to the data product level. Some tests also check **platform capabilities** (e.g. whether the platform exposes lineage, masking, or freshness metadata).
 
 ---
 

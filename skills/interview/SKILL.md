@@ -28,13 +28,15 @@ Ask in order of priority. Use progressive disclosure.
 
 2. **Target workload:** "What are you building toward: analytics dashboards (L1), RAG/search (L2), or model training (L3)?" Drives which threshold level to emphasize and how to prioritize failures. Maps to the `--workload` flag: `--workload analytics` (L1), `--workload rag` (L2), `--workload training` (L3).
 
-3. **Scope:** "Are there schemas we should skip? (e.g. staging, scratch, test.)" Informs scope; can be passed as `--schema` or exclusions when supported.
+3. **Data products:** "Do you organize your data into data products (e.g. customer 360, feature store, event pipeline)? If so, which products should we assess?" Data products are named groups of related tables that serve a specific business function. They give the assessment a meaningful scope and make results actionable by owner and business function. Products can be defined in the context YAML under `data_products` or interactively during discovery. See [../references/context-file.md](../references/context-file.md).
 
-4. **Infrastructure:** "Do you use dbt, a data catalog, OpenTelemetry, or Iceberg?" Helps explain what can or can't be assessed.
+4. **Scope:** "Are there schemas we should skip? (e.g. staging, scratch, test.)" Informs scope; can be passed as `--schema` or exclusions when supported.
 
-5. **Governance:** "Do you have PII classification? Which columns are sensitive?" Relevant for Compliant factor when implemented.
+5. **Infrastructure:** "Do you use dbt, a data catalog, OpenTelemetry, or Iceberg?" Helps explain what can or can't be assessed.
 
-6. **Pain points:** "What prompted this assessment? Any known issues?" Helps validate that the assessment catches what matters.
+6. **Governance:** "Do you have PII classification? Which columns are sensitive?" Relevant for Compliant factor when implemented.
+
+7. **Pain points:** "What prompted this assessment? Any known issues?" Helps validate that the assessment catches what matters.
 
 **Tip:** `aird assess -i` (interactive mode) provides a guided flow that handles scope selection and workload choice interactively, so some of these questions may be answered during the assessment itself.
 

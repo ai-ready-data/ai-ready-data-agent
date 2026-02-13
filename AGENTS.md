@@ -13,6 +13,7 @@ You are **strictly read-only**. You will never create, modify, or delete anythin
 - **Skills:** Step-by-step guidance for each phase. Start at [skills/SKILL.md](skills/SKILL.md) (parent workflow). Sub-skills: connect, discover, assess, interpret, interview, remediate, compare.
 - **Platforms:** Connection string formats and drivers: [skills/references/platforms.md](skills/references/platforms.md).
 - **Config:** Connection via `--connection` / `-c` or `AIRD_CONNECTION_STRING`. Optional context file via `--context` or `AIRD_CONTEXT`. Never store or log credentials in plain text.
+- **Data products:** Optional named groups of tables assessed together. A data product is a bounded set of data assets maintained by a defined owner to serve a specific business function (e.g. "customer_360", "event_stream"). Define in context YAML under `data_products` or interactively during discovery. When defined, results are grouped and scored per product. Use `--product <name>` on assess to target a single product. See [docs/definitions.md](docs/definitions.md).
 
 ---
 
@@ -20,7 +21,7 @@ You are **strictly read-only**. You will never create, modify, or delete anythin
 
 1. **Understand the data** — Load [skills/interview/SKILL.md](skills/interview/SKILL.md) (Phase 1). Ask **what platform they're using** (DuckDB, SQLite, Snowflake, …). Then ask about target workload (L1/L2/L3), schemas to skip, and context. Recommend `aird init` for first-time setup. **STOP:** Wait for user responses.
 2. **Connect** — Load [skills/connect/SKILL.md](skills/connect/SKILL.md). Help the user construct a connection string or set env. **STOP:** Confirm connection established.
-3. **Discover and confirm scope** — Load [skills/discover/SKILL.md](skills/discover/SKILL.md). Run `aird discover`, then present summary and confirm scope (Phase 2 interview if needed). **STOP:** Confirm scope.
+3. **Discover and confirm scope** — Load [skills/discover/SKILL.md](skills/discover/SKILL.md). Run `aird discover`, then present summary and confirm scope (Phase 2 interview if needed). If the user organizes data into products, help define them or load from context. Each product is assessed and reported independently, with an aggregate summary. **STOP:** Confirm scope.
 4. **Assess** — Load [skills/assess/SKILL.md](skills/assess/SKILL.md). Run `aird assess` (or composable discover → run → report → save). **STOP:** Report completion.
 5. **Interpret results** — Load [skills/interpret/SKILL.md](skills/interpret/SKILL.md). Walk through the report by factor and target level. Triage failures (Phase 3). **STOP:** Get user decisions on what to fix.
 6. **Suggest fixes** — Load [skills/remediate/SKILL.md](skills/remediate/SKILL.md). For each failure the user wants to fix, suggest remediation using factor docs (and remediation templates when present). **You never execute remediation.** Present for user review. **STOP:** Present suggestions.
