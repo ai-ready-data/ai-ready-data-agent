@@ -60,7 +60,7 @@ Run the setup script in Snowflake:
 
 ```bash
 # Using snowsql
-snowsql -a <account> -u <user> -f scripts/demo/snowflake_setup.sql
+snowsql -a <account> -u <user> -f demo/snowflake_setup.sql
 
 # Or copy/paste into Snowflake worksheet
 ```
@@ -74,7 +74,7 @@ snowsql -a <account> -u <user> -f scripts/demo/snowflake_setup.sql
 ### 2.2 Create Tags
 
 ```bash
-snowsql -a <account> -u <user> -f scripts/demo/snowflake_tags.sql
+snowsql -a <account> -u <user> -f demo/snowflake_tags.sql
 ```
 
 ### 2.3 Verify Agent Connection
@@ -139,7 +139,7 @@ For each factor, explain the problem, run the fix, show the improvement.
 aird assess -c "$AIRD_CONNECTION_STRING" --factor clean -o detail
 ```
 
-**Fix:** Run `scripts/demo/snowflake_fix_clean.sql` in Snowflake
+**Fix:** Run `demo/reference/snowflake_fix_clean.sql` in Snowflake
 
 **Key fixes applied:**
 - Fill null emails/phones
@@ -151,7 +151,7 @@ aird assess -c "$AIRD_CONNECTION_STRING" --factor clean -o detail
 
 **Problem:** No primary keys, no foreign keys, missing temporal columns
 
-**Fix:** Run `scripts/demo/snowflake_fix_contextual.sql`
+**Fix:** Run `demo/reference/snowflake_fix_contextual.sql`
 
 **Key fixes applied:**
 - Add PRIMARY KEY to all 5 tables
@@ -164,7 +164,7 @@ aird assess -c "$AIRD_CONNECTION_STRING" --factor clean -o detail
 
 **Problem:** No documentation, no clustering, no search optimization
 
-**Fix:** Run `scripts/demo/snowflake_fix_consumable.sql`
+**Fix:** Run `demo/reference/snowflake_fix_consumable.sql`
 
 **Key fixes applied:**
 - Add table comments
@@ -178,7 +178,7 @@ aird assess -c "$AIRD_CONNECTION_STRING" --factor clean -o detail
 
 **Problem:** Stale data, no change tracking, no CDC streams
 
-**Fix:** Run `scripts/demo/snowflake_fix_current.sql`
+**Fix:** Run `demo/reference/snowflake_fix_current.sql`
 
 **Key fixes applied:**
 - Enable change tracking
@@ -192,7 +192,7 @@ aird assess -c "$AIRD_CONNECTION_STRING" --factor clean -o detail
 
 **Problem:** No tags, no lineage visibility
 
-**Fix:** Run `scripts/demo/snowflake_fix_correlated.sql`
+**Fix:** Run `demo/reference/snowflake_fix_correlated.sql`
 
 **Key fixes applied:**
 - Apply data_domain tags
@@ -206,7 +206,7 @@ aird assess -c "$AIRD_CONNECTION_STRING" --factor clean -o detail
 
 **Problem:** PII exposed, no access controls
 
-**Fix:** Run `scripts/demo/snowflake_fix_compliant.sql`
+**Fix:** Run `demo/reference/snowflake_fix_compliant.sql`
 
 **Key fixes applied:**
 - Create and apply masking policies
