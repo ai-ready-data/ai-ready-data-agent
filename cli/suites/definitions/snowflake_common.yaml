@@ -1,0 +1,24 @@
+# Composed Snowflake suite: merges all 6 factors for comprehensive assessment.
+# The Snowflake platform adapter registers with default_suite="common_snowflake",
+# so this composed suite is what gets used by default for Snowflake assessments.
+#
+# Factors included:
+#   0. Clean - Data quality (nulls, duplicates, format consistency)
+#   1. Contextual - Semantic context (PKs, FKs, temporal columns)
+#   2. Consumable - Accessibility (documentation, clustering, search)
+#   3. Current - Freshness (change tracking, streams, data age)
+#   4. Correlated - Lineage (tags, provenance, traceability)
+#   5. Compliant - Governance (masking, row access, sensitivity)
+#
+# Reference: /factors.md for factor definitions
+suite_name: common_snowflake
+platform: snowflake
+extends:
+  - clean_snowflake
+  - contextual_snowflake
+  - consumable_snowflake
+  - current_snowflake
+  - correlated_snowflake
+  - compliant_snowflake
+tests: []
+

@@ -1,0 +1,67 @@
+# Correlated factor suite for Snowflake
+# Factor 4: Is the data traceable from source to every decision it informs?
+# Reference: /factors.md — Observable (Correlated) section
+# Requirement keys match agent/requirements_registry.yaml
+suite_name: correlated_snowflake
+platform: snowflake
+
+tests:
+  - id: object_tag_coverage
+    factor: correlated
+    requirement: object_tag_coverage
+    query: >-
+      WITH base_tables AS (
+        SELECT table_catalog, table_schema, table_name
+        FROM information_schema.tables
+        WHERE UPPER(table_schema) NOT IN ('INFORMATION_SCHEMA', 'PG_CATALOG')
+          AND table_type = 'BASE TABLE'
+      ),
+      tagged_tables AS (
+        SELECT DISTINCT object_database, object_schema, object_name
+        FROM snowflake.account_usage.tag_references
+        WHERE domain = 'TABLE'
+          AND deleted IS NULL
+      )
+      SELECT COUNT(tt.object_name) * 1.0 / NULLIF(COUNT(bt.table_name), 0) AS v
+      FROM base_tables bt
+      LEFT JOIN tagged_tables tt
+        ON bt.table_catalog = tt.object_database
+        AND bt.table_schema = tt.object_schema
+        AND bt.table_name = tt.object_name
+    target_type: platform
+
+  - id: column_tag_coverage
+    factor: correlated
+    requirement: column_tag_coverage
+    query: >-
+      WITH all_columns AS (
+        SELECT table_catalog, table_schema, table_name, column_name
+        FROM information_schema.columns
+        WHERE UPPER(table_schema) NOT IN ('INFORMATION_SCHEMA', 'PG_CATALOG')
+      ),
+      tagged_columns AS (
+        SELECT DISTINCT object_database, object_schema, object_name, column_name
+        FROM snowflake.account_usage.tag_references
+        WHERE domain = 'COLUMN'
+          AND deleted IS NULL
+      )
+      SELECT COUNT(tc.column_name) * 1.0 / NULLIF(COUNT(ac.column_name), 0) AS v
+      FROM all_columns ac
+      LEFT JOIN tagged_columns tc
+        ON ac.table_catalog = tc.object_database
+        AND ac.table_schema = tc.object_schema
+        AND ac.table_name = tc.object_name
+        AND ac.column_name = tc.column_name
+    target_type: platform
+
+  - id: lineage_queryable
+    factor: correlated
+    requirement: lineage_queryable
+    query: >-
+      SELECT CASE 
+        WHEN (SELECT COUNT(*) FROM snowflake.account_usage.access_history 
+              WHERE query_start_time > DATEADD('day', -30, CURRENT_TIMESTAMP()) LIMIT 1) > 0 
+        THEN 1.0 
+        ELSE 0.0 
+      END AS v
+    target_type: platform
