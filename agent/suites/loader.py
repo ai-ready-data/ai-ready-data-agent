@@ -18,7 +18,7 @@ YAML schema per file:
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 import yaml
 
@@ -27,16 +27,30 @@ from agent.platform.registry import get_suite, register_suite
 logger = logging.getLogger(__name__)
 
 _DEFINITIONS_DIR = Path(__file__).parent / "definitions"
+_REGISTRY_PATH = Path(__file__).resolve().parent.parent / "requirements_registry.yaml"
 
 _REQUIRED_TEST_FIELDS = {"id", "factor", "requirement", "target_type"}
 _VALID_TARGET_TYPES = {"platform", "table", "column"}
+
+
+def _get_valid_requirement_keys() -> Set[str]:
+    """Return the set of requirement keys from the canonical registry."""
+    keys: Set[str] = set()
+    if not _REGISTRY_PATH.exists():
+        return keys
+    raw = yaml.safe_load(_REGISTRY_PATH.read_text())
+    if isinstance(raw, dict):
+        keys = set(raw.keys())
+    return keys
 
 # Tracks which suites use extends (suite_name -> list of parent suite names).
 # Populated during loading; consumed by cmd_suites for display.
 _suite_extends: Dict[str, List[str]] = {}
 
 
-def _validate_test(test: dict, file_path: Path, index: int) -> List[str]:
+def _validate_test(
+    test: dict, file_path: Path, index: int, valid_requirement_keys: Optional[Set[str]] = None
+) -> List[str]:
     """Validate a single test definition. Returns list of error messages (empty = valid)."""
     errors: List[str] = []
     for field in _REQUIRED_TEST_FIELDS:
@@ -49,6 +63,12 @@ def _validate_test(test: dict, file_path: Path, index: int) -> List[str]:
     tt = test.get("target_type")
     if tt and tt not in _VALID_TARGET_TYPES:
         errors.append(f"  test[{index}]: invalid target_type '{tt}' (expected one of {_VALID_TARGET_TYPES})")
+    req = test.get("requirement")
+    if valid_requirement_keys is not None and req and req not in valid_requirement_keys:
+        errors.append(
+            f"  test[{index}]: unknown requirement '{req}' "
+            f"(must match a key in requirements_registry.yaml)"
+        )
     return errors
 
 
@@ -126,13 +146,14 @@ def load_suite_file(file_path: Path) -> None:
     if not has_extends and len(tests_raw) == 0:
         raise ValueError(f"Suite file {file_path.name}: 'tests' must be a non-empty list (or use 'extends')")
 
-    # Validate all tests before registering any
+    # Validate all tests before registering any (including requirement keys vs registry)
+    valid_reqs = _get_valid_requirement_keys()
     all_errors: List[str] = []
     for i, test in enumerate(tests_raw):
         if not isinstance(test, dict):
             all_errors.append(f"  test[{i}]: expected mapping, got {type(test).__name__}")
             continue
-        all_errors.extend(_validate_test(test, file_path, i))
+        all_errors.extend(_validate_test(test, file_path, i, valid_requirement_keys=valid_reqs))
 
     if all_errors:
         raise ValueError(

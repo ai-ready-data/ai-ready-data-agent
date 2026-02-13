@@ -29,6 +29,7 @@ Commands are split into **convenience** (one-shot or simple) and **composable** 
 | **history** | List saved assessments from local SQLite. Optional filters: connection, limit. |
 | **diff** | Compare two reports. Input: two assessment ids, or two report files (e.g. `diff <id1> <id2>` or `diff --left report1.json --right report2.json`). |
 | **suites** | List available test suites (e.g. auto, common, snowflake). No side effects. |
+| **requirements** | List registered requirements and default thresholds from the canonical registry. |
 | **compare** | Compare assessment results for two tables side-by-side from the same connection. |
 | **rerun** | Re-run failed tests from the most recent (or specified) assessment and show improvement delta. |
 | **benchmark** | N-way comparison: run assessments on multiple connections (repeatable `-c`, at least 2) and compare results side-by-side. |

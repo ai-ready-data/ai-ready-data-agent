@@ -416,6 +416,48 @@ def cmd_diff(cfg: Config) -> None:
         _write_stdout(f"Right: L1={r_s.get('l1_pct')}% L2={r_s.get('l2_pct')}% L3={r_s.get('l3_pct')}%")
 
 
+def cmd_requirements(_cfg: Config) -> None:
+    """List all registered requirements from the canonical registry."""
+    from pathlib import Path
+    import yaml
+
+    registry_path = Path(__file__).resolve().parent / "requirements_registry.yaml"
+    if not registry_path.exists():
+        _write_stdout("No requirements registry found.")
+        return
+
+    raw = yaml.safe_load(registry_path.read_text())
+    if not isinstance(raw, dict):
+        _write_stdout("Registry is empty or invalid.")
+        return
+
+    if sys.stdout.isatty():
+        from agent.ui import print_table
+        headers = ["Key", "Name", "Factor", "Direction", "L1", "L2", "L3"]
+        rows = []
+        for key in sorted(raw.keys()):
+            entry = raw[key] if isinstance(raw[key], dict) else {}
+            dt = entry.get("default_thresholds", {})
+            rows.append([
+                key,
+                entry.get("name", "—"),
+                entry.get("factor", "—"),
+                entry.get("direction", "lte"),
+                str(dt.get("l1", "—")),
+                str(dt.get("l2", "—")),
+                str(dt.get("l3", "—")),
+            ])
+        print_table(headers, rows, title="Requirements Registry")
+    else:
+        for key in sorted(raw.keys()):
+            entry = raw[key] if isinstance(raw[key], dict) else {}
+            dt = entry.get("default_thresholds", {})
+            _write_stdout(
+                f"{key}\t{entry.get('name', '')}\t{entry.get('factor', '')}\t"
+                f"{entry.get('direction', 'lte')}\t{dt.get('l1')}\t{dt.get('l2')}\t{dt.get('l3')}"
+            )
+
+
 def cmd_suites(_cfg: Config) -> None:
     import agent.platform.duckdb_adapter  # noqa: F401
     from agent.platform.registry import get_all_suites, get_suite_names
@@ -535,6 +577,9 @@ def main() -> None:
     # suites
     subparsers.add_parser("suites", help="List test suites")
 
+    # requirements
+    subparsers.add_parser("requirements", help="List registered requirements and default thresholds")
+
     # init
     subparsers.add_parser("init", help="Interactive setup wizard for first-time users")
 
@@ -599,6 +644,8 @@ def main() -> None:
             cmd_diff(cfg)
         elif args.command == "suites":
             cmd_suites(cfg)
+        elif args.command == "requirements":
+            cmd_requirements(cfg)
         elif args.command == "compare":
             cmd_compare(cfg)
         elif args.command == "rerun":
