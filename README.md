@@ -2,7 +2,7 @@
 
 **Six factors that determine whether your data can reliably power AI systems.**
 
-An open standard defining what "AI-ready data" actually means, plus an assessment agent that turns the definition into executable, red/green test suites against your data infrastructure.
+An open standard defining what "AI-ready data" actually means, plus portable assessment skills that any AI agent can use to evaluate your data infrastructure.
 
 ## Background
 
@@ -17,56 +17,6 @@ The format is inspired by Martin Fowler's work on defining technical patterns, t
 * **Architects** evaluating whether their stack can support RAG, agents, or real-time inference.
 * **Data leaders** who need to assess organizational AI readiness and communicate gaps to their teams.
 * **Coding agents** building the infrastructure they'll eventually consume.
-
-## Quick Start
-
-Requires **Python 3.9+**.
-
-```bash
-# Clone and enter the repo
-git clone https://github.com/ai-ready-data/ai-ready-data-agent.git
-cd ai-ready-data-agent
-
-# Install the package (DuckDB is included)
-pip install -e .
-
-# Optional: Snowflake — pip install -e ".[snowflake]"
-
-# Interactive setup wizard (first-time users)
-aird init
-
-# Run the assessment
-aird assess -c "duckdb://:memory:"
-# Or with a file: aird assess -c "duckdb://path/to/file.duckdb" -o markdown
-# Or with env: export AIRD_CONNECTION_STRING="duckdb://path/to/file.duckdb" && aird assess
-# Interactive mode (guided scope selection): aird assess -c "duckdb://file.duckdb" -i
-# Dry run (preview tests without executing): aird assess -c "duckdb://file.duckdb" --dry-run
-```
-
-**Verify setup** (no credentials; run when you first land):
-
-```bash
-python scripts/verify_setup.py
-```
-
-**Full E2E with sample data** (clone → install → verify → assess):
-
-```bash
-git clone https://github.com/ai-ready-data/ai-ready-data-agent.git && cd ai-ready-data-agent
-pip install -e .
-python scripts/verify_setup.py --write-files
-aird assess -c "duckdb://sample.duckdb" -o markdown
-```
-
-**Compare datasets** (benchmark N connections side-by-side):
-
-```bash
-aird benchmark -c "duckdb://db1.duckdb" -c "duckdb://db2.duckdb"
-```
-
-Step-by-step checklist: [docs/E2E-from-GitHub.md](docs/E2E-from-GitHub.md).
-
-Built-in support for **DuckDB** and **SQLite** (no extra driver). Additional platforms (e.g. Snowflake) can be added via the platform registry — see [docs/specs](docs/specs/) and [docs/log](docs/log/). Run `python scripts/verify_setup.py` to confirm the agent works (no credentials); use `--write-files` to create sample data for CLI runs.
 
 ## The Three Workload Levels
 
@@ -84,11 +34,9 @@ Canonical definitions and rationale: [docs/definitions.md](docs/definitions.md).
 
 ---
 
-## What's In This Repo
+## The 6 Factors
 
-### [The Factors](skills/factors/)
-
-The AI-Ready Data Project defines six factors of AI-ready data. Each factor has requirements at all three workload levels. Factor docs are the single source of truth — each file includes requirements, thresholds, assessment SQL, remediation patterns, and stack capabilities.
+Each factor has requirements at all three workload levels. The factor docs in [`skills/factors/`](skills/factors/) are the single source of truth — each file includes requirements, numeric thresholds, assessment SQL, interpretation rules, remediation patterns, and stack capabilities.
 
 | Factor | Name | Definition |
 |--------|------|-------------|
@@ -99,27 +47,72 @@ The AI-Ready Data Project defines six factors of AI-ready data. Each factor has 
 | **4** | [**Correlated**](skills/factors/4-correlated.md) | Traceable from source to decisions |
 | **5** | [**Compliant**](skills/factors/5-compliant.md) | Governed, secure, policy-enforced |
 
-Canonical definitions: [docs/definitions.md](docs/definitions.md). Factor documents conform to [docs/specs/factor-spec.md](docs/specs/factor-spec.md).
+Factor document shape: [docs/specs/factor-spec.md](docs/specs/factor-spec.md).
 
-### [The Assessment Agent](agent/)
+---
 
-A Python CLI with purpose-built test suites. The output is a scored report showing which workload levels your data is ready for. You can assess a single database, or use `aird benchmark` to compare multiple datasets side-by-side.
+## Skills
 
-**The agent is strictly read-only.** It never creates, modifies, or deletes anything in your data source. For SQL platforms, only `SELECT`, `DESCRIBE`, `SHOW`, `EXPLAIN`, and `WITH` are allowed; validation is enforced before execution.
+Portable, agent-agnostic knowledge for AI-ready data assessment. Organized in two layers:
 
-**Built-in suites** (YAML-defined, auto-discovered from `agent/suites/definitions/`):
+**Portable knowledge** ([`skills/factors/`](skills/factors/), [`skills/platforms/`](skills/platforms/), [`skills/workflows/`](skills/workflows/)) — Self-contained markdown with everything an agent needs: factor definitions, SQL, thresholds, remediation patterns, and workflow guides. No CLI, no Python, no package install required. Any agent that can read markdown and execute SQL can follow these.
 
-| Suite | Platform | Tests | Factors | Notes |
-|-------|----------|-------|---------|-------|
-| `common` | DuckDB | 6 | Clean | ANSI SQL + information_schema |
-| `common_sqlite` | SQLite | 6 | Clean | SQLite-compatible (sqlite_master, pragma table_info) |
-| `clean_snowflake` | Snowflake | 6 | Clean | Snowflake-native SQL via information_schema |
-| `contextual_snowflake` | Snowflake | 4 | Contextual | primary_key_defined, semantic_model_coverage, foreign_key_coverage, temporal_scope_present |
-| `common_snowflake` | Snowflake | 10 | Clean + Contextual | Composed suite (extends clean_snowflake + contextual_snowflake) |
+**CLI orchestration** ([`skills/cli/`](skills/cli/)) — For agents with the `aird` CLI available. Shell commands that automate each workflow step. References the portable layer for domain knowledge — never duplicates it. See the [CLI README](cli/README.md) for installation and usage.
 
-The suite is auto-detected from your connection. Or specify it: `--suite common`, `--suite common_sqlite`, or `--suite common_snowflake`. Suites support composition via `extends` in YAML.
+Entry point: [`skills/SKILL.md`](skills/SKILL.md). Architecture details: [`skills/README.md`](skills/README.md).
 
-### [Design & Specs](docs/)
+---
+
+## For Cortex Code Users
+
+Install these skills to get AI-ready data assessment capabilities in Cortex Code.
+
+### Option 1: Add to skills.json (recommended)
+
+Add this to `~/.snowflake/cortex/skills.json`:
+
+```json
+{
+  "remote": [
+    {
+      "source": "https://github.com/ai-ready-data/ai-ready-data-agent",
+      "ref": "main",
+      "skills": [
+        { "name": "ai-ready-data" },
+        { "name": "assess-data-cli" }
+      ]
+    }
+  ]
+}
+```
+
+### Option 2: Ask Cortex Code to install
+
+Just tell Cortex Code:
+
+> "Install skills from github.com/ai-ready-data/ai-ready-data-agent"
+
+It will read this README and configure the skills for you.
+
+### After installation
+
+Use the skills with:
+- `$ai-ready-data` — Universal assessment (works with any SQL connection, no CLI required)
+- `$assess-data-cli` — CLI-based assessment (requires `aird` CLI installed)
+
+---
+
+## For Coding Agents
+
+Start at **[AGENTS.md](AGENTS.md)** for the playbook. It outlines the workflow (discover, connect, assess, interpret, remediate, compare), stopping points, and where to find everything.
+
+Skills live in [`skills/`](skills/) with a two-layer architecture:
+- **Portable knowledge** — Factor definitions, thresholds, assessment SQL, remediation patterns, and workflow guides. Any agent with SQL access can follow these directly.
+- **CLI orchestration** — Shell commands for the `aird` CLI that automate each step. References the portable layer for domain knowledge.
+
+---
+
+## Design & Specs
 
 Specifications, design rationale, and architecture:
 
@@ -128,68 +121,6 @@ Specifications, design rationale, and architecture:
 - [Factor spec](docs/specs/factor-spec.md) — factor document shape, requirement keys
 - [Report spec](docs/specs/report-spec.md) — canonical report JSON schema and markdown rendering
 - [Design log](docs/log/) — composability, architecture, analysis
-
-## How It Works
-
-1. **Connect** — Point the agent at your database (connection string or `AIRD_CONNECTION_STRING`). Snowflake users can use `snowflake://connection:NAME` to reuse `~/.snowflake/connections.toml`. Run `aird init` for an interactive setup wizard.
-2. **Discover** — The agent enumerates schemas, tables, and columns (or use `aird discover` alone).
-3. **Generate** — Tests are generated from the selected suite and inventory.
-4. **Execute** — Queries run against your data source (read-only), producing measurements.
-5. **Score** — Each measurement is compared against thresholds at all three workload levels (L1, L2, L3). The report tells you which levels your data is ready for.
-6. **Report** — A scored report grouped by factor shows where you stand and what to fix. Report schema: [docs/specs/report-spec.md](docs/specs/report-spec.md).
-7. **Save** — Results are stored locally in SQLite (`~/.aird/assessments.db` by default, or `AIRD_DB_PATH`) for history and diffing.
-
-```bash
-# Interactive setup wizard
-aird init
-
-# One-shot full pipeline (single database)
-aird assess -c "duckdb://:memory:" -o markdown
-
-# Interactive mode (guided scope selection)
-aird assess -c "duckdb://file.duckdb" -i
-
-# Filter to a single factor
-aird assess -c "duckdb://file.duckdb" --factor clean
-
-# Dry run (preview tests without executing)
-aird assess -c "duckdb://file.duckdb" --dry-run
-
-# Try the Clean factor suite (create sample files, then assess)
-python scripts/verify_setup.py --write-files && aird assess -c "duckdb://sample.duckdb" -o markdown
-
-# Composable: discover → run → report → save
-aird discover -c "duckdb://file.duckdb" -o inventory.json
-aird run -c "duckdb://file.duckdb" --inventory inventory.json -o results.json
-aird report --results results.json -o report.md
-aird save --report report.json
-
-# View assessment history
-aird history
-
-# Generate remediation scripts from failed tests
-aird fix --dry-run
-aird fix -o ./remediation
-
-# List available suites
-aird suites
-
-# Compare two reports (by id or file)
-aird diff <id1> <id2>
-
-# Side-by-side comparison of two tables
-aird compare
-
-# Re-run failed tests from most recent assessment
-aird rerun -c "duckdb://file.duckdb"
-
-# Benchmark: compare multiple datasets
-aird benchmark -c "duckdb://db1.duckdb" -c "duckdb://db2.duckdb"
-```
-
-## For coding agents
-
-Start at **[AGENTS.md](AGENTS.md)** for the playbook. It outlines the workflow (discover → connect → assess → interpret → remediate → compare), stopping points, and where to find the CLI, project, and skills. Skills live in [skills/](skills/) with a two-layer architecture: portable knowledge (factors, platforms, workflows) and CLI orchestration (skills/cli/). Key commands: `aird init` (setup), `aird assess` (full pipeline), `aird benchmark` (multi-dataset comparison), `aird compare`/`aird diff` (result comparison), `aird rerun` (retry failures).
 
 ## Contributing
 
