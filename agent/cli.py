@@ -254,7 +254,12 @@ def cmd_assess(cfg: Config) -> None:
                 finally:
                     conn.close()
 
-            _write_output(report, cfg.output, markdown_fn=report_to_markdown)
+            # Interactive mode: render Rich CLI report (not markdown) when output is markdown
+            if cfg.output == OutputFormat.MARKDOWN:
+                from agent.ui.report import render_rich_report
+                render_rich_report(report)
+            else:
+                _write_output(report, cfg.output, markdown_fn=report_to_markdown)
             return
 
     # --- Non-interactive (batch) path ---
