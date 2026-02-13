@@ -1,28 +1,9 @@
-# Setuptools editable install metadata (pip install -e .)
-*.egg-info/
-*.egg
-
-# E2E sample DBs (scripts/verify_setup.py --write-files)
-sample.duckdb
-sample.sqlite
-connections.txt
-connections.yaml
-
-# Python
-__pycache__/
-*.py[cod]
-.pytest_cache/
-.mypy_cache/
-.venv/
-venv/
-env/
+# OS
+.DS_Store
+Thumbs.db
 
 # IDE
 .idea/
 .vscode/
 *.swp
 *.swo
-
-# OS
-.DS_Store
-Thumbs.db

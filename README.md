@@ -53,11 +53,11 @@ Factor document shape: [docs/specs/factor-spec.md](docs/specs/factor-spec.md).
 
 ## Skills
 
-Portable, agent-agnostic knowledge for AI-ready data assessment. Organized in two layers:
+Portable, agent-agnostic knowledge for AI-ready data assessment.
 
-**Portable knowledge** ([`skills/factors/`](skills/factors/), [`skills/platforms/`](skills/platforms/), [`skills/workflows/`](skills/workflows/)) — Self-contained markdown with everything an agent needs: factor definitions, SQL, thresholds, remediation patterns, and workflow guides. No CLI, no Python, no package install required. Any agent that can read markdown and execute SQL can follow these.
+[`skills/factors/`](skills/factors/), [`skills/platforms/`](skills/platforms/), [`skills/workflows/`](skills/workflows/) — Self-contained markdown with everything an agent needs: factor definitions, SQL, thresholds, remediation patterns, and workflow guides. No CLI, no Python, no package install required. Any agent that can read markdown and execute SQL can follow these.
 
-**CLI orchestration** ([`skills/cli/`](skills/cli/)) — For agents with the `aird` CLI available. Shell commands that automate each workflow step. References the portable layer for domain knowledge — never duplicates it. See the [CLI README](cli/README.md) for installation and usage.
+For automated CLI-based assessment, see the [ai-ready-data-cli](https://github.com/ai-ready-data/ai-ready-data-cli) repo.
 
 Entry point: [`skills/SKILL.md`](skills/SKILL.md). Architecture details: [`skills/README.md`](skills/README.md).
 
@@ -78,8 +78,7 @@ Add this to `~/.snowflake/cortex/skills.json`:
       "source": "https://github.com/ai-ready-data/ai-ready-data-agent",
       "ref": "main",
       "skills": [
-        { "name": "ai-ready-data" },
-        { "name": "assess-data-cli" }
+        { "name": "ai-ready-data" }
       ]
     }
   ]
@@ -96,9 +95,10 @@ It will read this README and configure the skills for you.
 
 ### After installation
 
-Use the skills with:
+Use the skill with:
 - `$ai-ready-data` — Universal assessment (works with any SQL connection, no CLI required)
-- `$assess-data-cli` — CLI-based assessment (requires `aird` CLI installed)
+
+For CLI-based assessment, install the `aird` CLI from the [ai-ready-data-cli](https://github.com/ai-ready-data/ai-ready-data-cli) repo.
 
 ---
 
@@ -106,9 +106,9 @@ Use the skills with:
 
 Start at **[AGENTS.md](AGENTS.md)** for the playbook. It outlines the workflow (discover, connect, assess, interpret, remediate, compare), stopping points, and where to find everything.
 
-Skills live in [`skills/`](skills/) with a two-layer architecture:
-- **Portable knowledge** — Factor definitions, thresholds, assessment SQL, remediation patterns, and workflow guides. Any agent with SQL access can follow these directly.
-- **CLI orchestration** — Shell commands for the `aird` CLI that automate each step. References the portable layer for domain knowledge.
+Skills live in [`skills/`](skills/) — factor definitions, thresholds, assessment SQL, remediation patterns, and workflow guides. Any agent with SQL access can follow these directly.
+
+For CLI-automated assessment, see the [ai-ready-data-cli](https://github.com/ai-ready-data/ai-ready-data-cli) repo.
 
 ---
 
@@ -117,10 +117,10 @@ Skills live in [`skills/`](skills/) with a two-layer architecture:
 Specifications, design rationale, and architecture:
 
 - [Project spec](docs/specs/project-spec.md) — purpose, layers, outcomes
-- [CLI spec](docs/specs/cli-spec.md) — commands, artifacts, config
 - [Factor spec](docs/specs/factor-spec.md) — factor document shape, requirement keys
-- [Report spec](docs/specs/report-spec.md) — canonical report JSON schema and markdown rendering
+- [Agentic system spec](docs/specs/agentic-system-spec.md) — agent/skills architecture
 - [Design log](docs/log/) — composability, architecture, analysis
+- [CLI spec](https://github.com/ai-ready-data/ai-ready-data-cli) — commands, artifacts, config (in the CLI repo)
 
 ## Contributing
 
