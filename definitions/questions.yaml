@@ -1,0 +1,250 @@
+# AI-Ready Data Assessment — Discovery Questions
+#
+# Structured manifest of every question the agent asks during the
+# discover/scope phase. Used by skills/workflows/discover.md and
+# referenced from AGENTS.md.
+#
+# Format follows blueprint-manager conventions:
+#   answer_title  — key used in the context file (context.yaml)
+#   question_text — what the agent asks the user
+#   answer_type   — text | multi-select | list | object-list
+#   phase         — pre-connect (Phase 1) or post-discovery (Phase 3)
+#   priority      — order within phase (lower = ask first)
+#   required      — must have a value before assessment can run
+#   options       — valid choices (multi-select only)
+#   guidance      — why this matters and how to answer
+#   default       — value to use if user doesn't specify (null = no default)
+
+# =============================================================================
+# PHASE 1: Pre-Connect — Gather context before running any queries
+# =============================================================================
+
+- answer_title: platform
+  question_text: What database platform are you using?
+  answer_type: multi-select
+  phase: pre-connect
+  priority: 1
+  required: true
+  options:
+    - Snowflake
+    - DuckDB
+    - PostgreSQL
+    - SQLite
+    - BigQuery
+    - Databricks
+    - Redshift
+    - Other
+  guidance: |
+    Determines which SQL dialect and platform skill to load.
+    The agent needs this first because all subsequent queries
+    depend on the platform's information_schema structure,
+    SQL syntax, and available metadata.
+
+    Currently supported with full platform skills: Snowflake.
+    Other platforms use generic SQL patterns.
+  default: null
+
+- answer_title: target_workload
+  question_text: What AI workload are you building toward?
+  answer_type: multi-select
+  phase: pre-connect
+  priority: 2
+  required: true
+  options:
+    - L1 — Descriptive analytics and BI
+    - L2 — RAG and retrieval systems
+    - L3 — ML model training and fine-tuning
+  guidance: |
+    Drives which threshold level to apply when scoring assessment
+    results and how to prioritize failures.
+
+    L1 (analytics/BI): Moderate tolerance — humans are in the loop.
+    L2 (RAG/retrieval): Low tolerance — any chunk can become a response.
+    L3 (ML training): Very low tolerance — errors are learned into weights.
+
+    Levels are ordered by strictness, not maturity. Meeting L3 implies
+    meeting L2 and L1 (additivity). If unsure, start with L2 — it's
+    the most common target for teams adopting AI.
+  default: null
+
+- answer_title: data_products
+  question_text: Do you organize your data into data products? If so, which products should we assess?
+  answer_type: object-list
+  phase: pre-connect
+  priority: 3
+  required: false
+  guidance: |
+    A data product is a named, bounded set of data assets maintained by
+    a defined owner to serve a specific business function (e.g.
+    "customer_360", "feature_store", "event_pipeline").
+
+    When defined, assessment results are grouped and scored per product.
+    When not defined, the agent treats all discovered assets as a single
+    unnamed product.
+
+    For each data product, provide:
+      - name: identifier (e.g. "customer_360")
+      - schemas: list of schema.table patterns to include
+      - owner: team or person responsible (optional)
+      - target_workload: per-product override of L1/L2/L3 (optional)
+
+    Example:
+      - name: customer_360
+        schemas: [ANALYTICS.CUSTOMERS, ANALYTICS.ORDERS]
+        owner: data-eng
+      - name: event_stream
+        schemas: [RAW.EVENTS, TRANSFORM.EVENTS_ENRICHED]
+        owner: platform-team
+        target_workload: L3
+  default: null
+
+- answer_title: excluded_schemas
+  question_text: Are there schemas we should skip?
+  answer_type: list
+  phase: pre-connect
+  priority: 4
+  required: false
+  guidance: |
+    Schemas that should be excluded from assessment. Common exclusions:
+    staging, scratch, test, temp, _internal.
+
+    Assessment only evaluates production or production-bound data.
+    Excluding non-production schemas avoids noise in the results
+    and keeps the assessment focused.
+  default: null
+
+- answer_title: infrastructure_tools
+  question_text: Do you use dbt, a data catalog, OpenTelemetry, or Iceberg?
+  answer_type: multi-select
+  phase: pre-connect
+  priority: 5
+  required: false
+  options:
+    - dbt
+    - Data catalog (Alation, Collibra, DataHub, etc.)
+    - OpenTelemetry
+    - Apache Iceberg
+    - Apache Hudi
+    - Delta Lake
+    - Fivetran / Airbyte / ingestion tool
+    - Orchestrator (Airflow, Dagster, Prefect, etc.)
+    - None / not sure
+  guidance: |
+    Helps the agent understand what metadata is available and what
+    can or can't be assessed. For example:
+
+    - dbt: may have tests, documentation, and lineage already
+    - Data catalog: may provide descriptions, tags, ownership
+    - OpenTelemetry: may provide pipeline observability data
+    - Iceberg/Hudi/Delta: affects how freshness and versioning are tracked
+    - Orchestrator: affects how pipeline health is monitored
+
+    This doesn't change what factors are assessed — it helps the agent
+    interpret results and suggest remediation that fits the existing stack.
+  default: null
+
+- answer_title: pain_points
+  question_text: What prompted this assessment? Any known issues?
+  answer_type: text
+  phase: pre-connect
+  priority: 6
+  required: false
+  guidance: |
+    Helps validate that the assessment catches what matters to the user.
+    Common answers:
+
+    - "We're about to deploy a RAG pipeline and want to check the data"
+    - "Our ML model accuracy dropped and we suspect data quality"
+    - "We inherited this warehouse and need to understand its state"
+    - "Compliance audit — need to verify governance controls"
+    - "No specific issue, just want a baseline"
+
+    If the user has a specific concern, the agent can prioritize the
+    relevant factor (e.g. staleness concern → Factor 3: Current).
+  default: null
+
+# =============================================================================
+# PHASE 3: Post-Discovery — Confirm scope after running discovery queries
+# =============================================================================
+
+- answer_title: database
+  question_text: Which database should I assess?
+  answer_type: text
+  phase: post-discovery
+  priority: 1
+  required: true
+  guidance: |
+    After running discovery queries, the agent presents available
+    databases. The user confirms which database to assess.
+
+    This value is populated by the agent from the active connection
+    or discovery results, then confirmed by the user.
+  default: null
+
+- answer_title: schemas
+  question_text: Which schemas should I assess?
+  answer_type: list
+  phase: post-discovery
+  priority: 2
+  required: true
+  guidance: |
+    After discovering available schemas, the agent presents them
+    with table counts and sizes. The user confirms which schemas
+    are in scope.
+
+    Combined with excluded_schemas from Phase 1 to determine
+    the final assessment scope.
+  default: null
+
+- answer_title: tables
+  question_text: Should I assess all tables, or exclude any?
+  answer_type: list
+  phase: post-discovery
+  priority: 3
+  required: false
+  guidance: |
+    After listing tables in the confirmed schemas, the user can
+    exclude specific tables. If not specified, all tables in the
+    confirmed schemas (minus excluded_schemas) are assessed.
+
+    Common exclusions: staging tables, temp tables, archive tables,
+    system tables.
+  default: null
+
+- answer_title: critical_tables
+  question_text: Which tables are most critical for your AI workload?
+  answer_type: list
+  phase: post-discovery
+  priority: 4
+  required: false
+  guidance: |
+    Optional. Helps the agent prioritize in interpretation and
+    remediation. Critical tables get called out first in the report
+    and their failures are flagged with higher urgency.
+
+    Example: "CUSTOMERS and EVENTS are the most important — they
+    feed our RAG pipeline directly."
+  default: null
+
+- answer_title: factor_scope
+  question_text: Should I assess all 6 factors, or focus on specific ones?
+  answer_type: multi-select
+  phase: post-discovery
+  priority: 5
+  required: true
+  options:
+    - all
+    - "0: Clean"
+    - "1: Contextual"
+    - "2: Consumable"
+    - "3: Current"
+    - "4: Correlated"
+    - "5: Compliant"
+  guidance: |
+    By default, all 6 factors are assessed. Users can narrow the
+    scope if they have a specific concern or want a faster assessment.
+
+    Selecting "all" is recommended for the first assessment to get
+    a complete baseline. Subsequent runs can focus on specific factors
+    based on previous results.
+  default: all

@@ -1,0 +1,7 @@
+# Ignore all projects (may contain database-specific context)
+*
+
+# But keep the directory itself and the sample project
+!.gitignore
+!sample/
+!sample/**

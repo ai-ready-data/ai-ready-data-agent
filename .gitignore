@@ -7,3 +7,7 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Assessment artifacts (global storage lives outside repo, but just in case)
+*.db
+*.jsonl

@@ -5,16 +5,31 @@ Portable, agent-agnostic knowledge and workflows for AI-Ready Data assessment. T
 ## Architecture
 
 ```
-skills/
-├── SKILL.md              # Universal entry point (no CLI dependency)
-├── audit/                # Audit logging (optional)
-│   ├── SKILL.md          # Setup and logging instructions
-│   ├── schema.sql        # SQLite schema
-│   └── queries.md        # Analysis queries
-├── factors/              # Factor definitions: requirements, thresholds, SQL, remediation
-├── platforms/            # Platform-specific SQL patterns and connection details
-├── workflows/            # Step-by-step workflow guides (discover, assess, interpret, remediate)
-└── README.md             # You are here
+ai-ready-data-agent/
+├── AGENTS.md                 # Agent playbook — start here
+├── definitions/
+│   ├── questions.yaml        # Discovery question manifest (M1)
+│   ├── context-sample.yaml   # Annotated context file example (M2)
+│   └── workflow.yaml         # Assessment step manifest — inputs, outputs, stops (M3)
+├── docs/
+│   └── specs/
+│       ├── context-spec.md       # context.yaml schema reference (M2)
+│       └── project-structure-spec.md  # Project directory convention (M5)
+├── projects/
+│   └── sample/               # Example project with sample artifacts (M5)
+│       ├── context.yaml
+│       ├── reports/
+│       └── remediation/
+└── skills/
+    ├── SKILL.md              # Universal entry point (no CLI dependency)
+    ├── audit/                # Audit logging (optional)
+    │   ├── SKILL.md
+    │   ├── schema.sql
+    │   └── queries.md
+    ├── factors/              # Factor definitions: requirements, thresholds, SQL, remediation
+    ├── platforms/            # Platform-specific SQL patterns and connection details
+    ├── workflows/            # Step-by-step workflow guides (discover, assess, interpret, remediate)
+    └── README.md             # You are here
 ```
 
 ### Portable Knowledge

@@ -1,0 +1,56 @@
+# AI-Ready Data Assessment Context — Sample
+# Project: sample-assessment
+# Created: 2026-02-13T14:30:00Z
+# Agent: cortex-code
+#
+# This is a sample context file showing all available fields.
+# Keys match definitions/questions.yaml answer_title values.
+# Spec: docs/specs/context-spec.md
+
+# --- Metadata (written by agent) ---
+created_at: "2026-02-13T14:30:00Z"
+created_by: cortex-code
+
+# --- Phase 1: Pre-connect (from user) ---
+
+# Required: database platform
+platform: Snowflake
+
+# Required: target workload level (L1, L2, or L3)
+target_workload: L2
+
+# Optional: named groups of tables assessed together
+data_products:
+  - name: customer_360
+    schemas: [ANALYTICS.CUSTOMERS, ANALYTICS.ORDERS, ANALYTICS.INTERACTIONS]
+    owner: data-eng
+  - name: event_stream
+    schemas: [RAW.EVENTS, TRANSFORM.EVENTS_ENRICHED]
+    owner: platform-team
+    target_workload: L3  # per-product override
+
+# Optional: schemas to skip entirely
+excluded_schemas: [STAGING, SCRATCH, TEST]
+
+# Optional: infrastructure tools in the stack (informational)
+infrastructure_tools: [dbt, Apache Iceberg]
+
+# Optional: what prompted this assessment (informational)
+pain_points: "Deploying a RAG pipeline next month, need to validate data quality"
+
+# --- Phase 3: Post-discovery (from user, after running discovery queries) ---
+
+# Required: database to assess
+database: ANALYTICS_PROD
+
+# Required: schemas in scope
+schemas: [ANALYTICS, RAW, TRANSFORM]
+
+# Optional: specific tables to exclude (if omitted, all tables in schemas are assessed)
+# tables: [RAW.TEMP_LOAD, TRANSFORM.SCRATCH_WIP]
+
+# Optional: tables to prioritize in reporting
+critical_tables: [ANALYTICS.CUSTOMERS, ANALYTICS.ORDERS, RAW.EVENTS]
+
+# Required: which factors to assess (all, or list of specific factors)
+factor_scope: all

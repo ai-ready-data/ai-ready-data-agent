@@ -1,0 +1,32 @@
+# AI-Ready Data Assessment Context
+# Project: sample
+# Created: 2026-02-13T14:30:00Z
+# Agent: cortex-code
+#
+# Sample context file demonstrating the project structure.
+# Keys match definitions/questions.yaml answer_title values.
+# Spec: docs/specs/context-spec.md
+
+# --- Metadata (written by agent) ---
+created_at: "2026-02-13T14:30:00Z"
+created_by: cortex-code
+
+# --- Phase 1: Pre-connect ---
+platform: Snowflake
+target_workload: L2
+
+data_products:
+  - name: customer_360
+    schemas: [ANALYTICS.CUSTOMERS, ANALYTICS.ORDERS, ANALYTICS.INTERACTIONS]
+    owner: data-eng
+
+excluded_schemas: [STAGING, SCRATCH]
+
+infrastructure_tools: [dbt]
+pain_points: "Deploying a RAG pipeline next month, need to validate data quality"
+
+# --- Phase 3: Post-discovery ---
+database: ANALYTICS_PROD
+schemas: [ANALYTICS]
+critical_tables: [ANALYTICS.CUSTOMERS, ANALYTICS.ORDERS]
+factor_scope: all

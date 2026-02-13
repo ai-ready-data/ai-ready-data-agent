@@ -1,0 +1,81 @@
+# AI-Ready Data Assessment — Workflow Manifest
+#
+# Machine-readable declaration of the assessment workflow steps,
+# their inputs, outputs, and stopping points.
+#
+# Referenced from AGENTS.md and skills/README.md.
+# Each step corresponds to a workflow skill in skills/workflows/.
+
+workflow_id: ai-ready-data-assessment
+name: AI-Ready Data Assessment
+description: >
+  Assess data platforms and data assets for AI-readiness across six factors
+  at three workload levels (L1/L2/L3). Steps are sequential with mandatory
+  stopping points between each phase for user confirmation.
+
+steps:
+  - id: discover
+    name: Discover & Scope
+    skill: skills/workflows/discover.md
+    description: >
+      Gather context (platform, workload, scope), run discovery SQL,
+      confirm scope with user, save answers to context file.
+    inputs: []
+    outputs:
+      - context.yaml                      # YAML — projects/<name>/context.yaml
+    references:
+      - definitions/questions.yaml        # Question manifest for discovery
+      - skills/platforms/*.md             # Platform-specific discovery SQL
+    stop: true
+    stop_reason: Wait for user to confirm scope before running assessment.
+
+  - id: assess
+    name: Assess
+    skill: skills/workflows/assess.md
+    description: >
+      For each factor in scope, execute assessment SQL against confirmed
+      tables. Record metric values. Write results to SQLite.
+    inputs:
+      - context.yaml                      # Scope, platform, workload level
+      - skills/factors/*.md               # Assessment SQL and thresholds
+      - skills/platforms/*.md             # Platform-specific SQL patterns
+    outputs:
+      - aird-results.db                   # SQLite — assessment + factor_scores rows
+    side_effects:
+      - aird-audit.jsonl                  # JSONL — query events appended
+    stop: true
+    stop_reason: Report assessment completion. User reviews before interpretation.
+
+  - id: interpret
+    name: Interpret Results
+    skill: skills/workflows/interpret.md
+    description: >
+      Apply thresholds to raw metrics, calculate factor and overall scores,
+      present findings, triage failures with user.
+    inputs:
+      - aird-results.db                   # Assessment results
+      - skills/factors/*.md               # Thresholds and interpretation rules
+    outputs:
+      - report.md                         # Markdown — projects/<name>/reports/<timestamp>.md
+    stop: true
+    stop_reason: User decides which failures to fix before remediation.
+
+  - id: remediate
+    name: Suggest Fixes
+    skill: skills/workflows/remediate.md
+    description: >
+      For each failure the user wants to fix, generate concrete SQL using
+      remediation patterns from factor skills. Present for user approval.
+      Never execute without consent.
+    inputs:
+      - report.md                         # Interpreted results with failures
+      - skills/factors/*.md               # Remediation SQL patterns
+    outputs:
+      - remediation.sql                   # SQL — projects/<name>/remediation/<timestamp>.sql
+    stop: true
+    stop_reason: User reviews and executes fixes. Agent never runs remediation.
+
+# Storage locations (global, not per-project)
+storage:
+  results_db: ~/.snowflake/cortex/aird-results.db
+  audit_log: ~/.snowflake/cortex/aird-audit.jsonl
