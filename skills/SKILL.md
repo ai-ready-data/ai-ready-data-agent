@@ -1,123 +1,142 @@
----
-name: assess-data
-description: "Assess a database against the AI-Ready Data Framework. Use when: evaluating AI readiness, running data quality assessments, checking if data is AI-ready. Triggers: assess my data, is my data AI-ready, data readiness, run assessment, evaluate my database."
----
-
 # AI-Ready Data Assessment
 
-End-to-end workflow for assessing a database against the AI-Ready Data Framework. Produces a scored report across six factors (Clean, Contextual, Consumable, Current, Correlated, Compliant) at three workload levels (L1: Analytics, L2: RAG, L3: Training).
+You are an AI-ready data assessment agent. You help users evaluate whether their data is ready for AI workloads by assessing it against the **6 Factors of AI-Ready Data**.
 
-## Forbidden Actions
+## Overview
 
-- NEVER execute SQL that creates, modifies, or deletes data in the user's database
-- NEVER execute remediation SQL — present it for the user to review and run
-- NEVER skip a STOP point — always wait for explicit user confirmation
-- NEVER store or log database credentials in plain text
-- NEVER proceed to the next skill without confirming the current skill's output
+AI systems have fundamentally different data requirements than traditional analytics. This skill equips you to assess data readiness across six dimensions, with requirements calibrated to three workload levels.
 
-## Setup
+### The 6 Factors
 
-**Load** [references/platforms.md](references/platforms.md) when helping users construct connection strings.
+| # | Factor | Definition | Key Question |
+|---|--------|------------|--------------|
+| 0 | **Clean** | Accurate, complete, valid, error-free | Is the data trustworthy? |
+| 1 | **Contextual** | Meaning explicit and colocated | Can AI interpret it without human context? |
+| 2 | **Consumable** | Right format, latency, scale | Can AI consume it without transformation? |
+| 3 | **Current** | Fresh, tracked, not stale | Does it reflect the present state? |
+| 4 | **Correlated** | Lineage visible, provenance tracked | Can we trace data to decisions? |
+| 5 | **Compliant** | Governed, secure, policy-enforced | Is it safe to use for AI? |
 
-Ensure the assessment tool is installed:
+### Workload Levels (L1/L2/L3)
 
-```bash
-cd /path/to/ai-ready-agent
-pip install -e .
+| Level | Workload | Tolerance for Issues |
+|-------|----------|---------------------|
+| **L1** | Descriptive analytics & BI | Moderate — humans compensate |
+| **L2** | RAG & retrieval systems | Low — any chunk becomes an answer |
+| **L3** | ML training & fine-tuning | Very low — errors are learned |
+
+Requirements are **additive by strictness**: meeting L3 implies meeting L2 and L1.
+
+---
+
+## How to Use This Skill
+
+### 1. Understand User Intent
+
+When a user asks about AI readiness, determine:
+- **Platform**: What database? (Snowflake, DuckDB, PostgreSQL, etc.)
+- **Scope**: Which schemas/tables? All or specific data products?
+- **Workload**: What AI use case? (L1/L2/L3)
+- **Focus**: All factors or specific ones?
+
+### 2. Load Sub-Skills as Needed
+
+```
+skills/
+├── SKILL.md                    <- You are here (entry point)
+├── factors/
+│   ├── 0-clean.md              <- Requirements, SQL, thresholds, remediation
+│   ├── 1-contextual.md
+│   ├── 2-consumable.md
+│   ├── 3-current.md
+│   ├── 4-correlated.md
+│   └── 5-compliant.md
+├── platforms/
+│   └── snowflake.md            <- Platform-specific SQL patterns
+├── workflows/
+│   ├── discover.md             <- How to discover scope
+│   ├── assess.md               <- How to run assessment
+│   ├── interpret.md            <- How to explain results
+│   └── remediate.md            <- How to suggest fixes
+├── cli/                        <- CLI orchestration (for aird CLI users)
+│   ├── SKILL.md                <- CLI-specific entry point
+│   └── ...
+└── README.md                   <- Architecture, how to add platforms, how to fork
 ```
 
-DuckDB is included. For Snowflake: `pip install -e ".[snowflake]"`.
+### 3. Assessment Workflow
 
-## Intent Detection
+**Phase 1: Connect & Scope**
+1. Confirm database connection (use active connection or ask)
+2. Run discovery to understand available schemas/tables — see [workflows/discover.md](workflows/discover.md)
+3. Confirm scope with user (which tables to assess)
 
-| User Situation | Route |
-|----------------|-------|
-| First-time assessment, no connection yet | Start at Step 1 |
-| First-time user, wants guided setup | Recommend `aird init` or start at [interview/SKILL.md](interview/SKILL.md) |
-| Has connection string, wants full assessment | Skip to [connect/SKILL.md](connect/SKILL.md) |
-| Already connected, wants to re-run | Skip to [assess/SKILL.md](assess/SKILL.md) |
-| Has a report, wants to understand results | Skip to [interpret/SKILL.md](interpret/SKILL.md) |
-| Has results, wants to fix issues | Skip to [remediate/SKILL.md](remediate/SKILL.md) |
-| Wants to compare against a previous run | Skip to [compare/SKILL.md](compare/SKILL.md) |
-| Wants to compare multiple datasets | Use `aird benchmark` or skip to [compare/SKILL.md](compare/SKILL.md) |
+**Phase 2: Assess**
+4. For each factor in scope:
+   - Load the factor sub-skill (e.g., [factors/0-clean.md](factors/0-clean.md))
+   - Load the platform sub-skill (e.g., [platforms/snowflake.md](platforms/snowflake.md))
+   - Execute SQL queries against the database
+   - Record metric values
+   - See [workflows/assess.md](workflows/assess.md) for the full pattern
 
-## Workflow
+**Phase 3: Interpret**
+5. Apply thresholds based on workload level (L1/L2/L3)
+6. Calculate pass/fail for each requirement
+7. Summarize by factor with overall scores
+8. See [workflows/interpret.md](workflows/interpret.md)
 
-### Step 1: Gather Context and Platforms
+**Phase 4: Remediate (if requested)**
+9. For failures, load remediation patterns from the factor sub-skill
+10. Generate concrete SQL fixes for the user's schema/tables
+11. Present for user review (never execute without approval)
+12. See [workflows/remediate.md](workflows/remediate.md)
 
-**Load** [interview/SKILL.md](interview/SKILL.md) (Phase 1 only)
+---
 
-Ask **what platform they're using** (DuckDB, SQLite, Snowflake, …). For first-time users, recommend `aird init` for interactive guided setup. Then ask about goals, workload (L1/L2/L3), and scope.
+## Quick Reference: Threshold Interpretation
 
-**STOP:** Wait for user responses before proceeding.
+**Direction:**
+- `lte` (lower is better): null_rate, duplicate_rate — value must be <= threshold to pass
+- `gte` (higher is better): pk_coverage, comment_coverage — value must be >= threshold to pass
 
-### Step 2: Connect
+**Scoring:**
+- Each requirement produces a value between 0.0 and 1.0
+- Compare against L1/L2/L3 threshold based on user's workload
+- Factor score = average of requirement scores
+- Overall score = average of factor scores
 
-**Load** [connect/SKILL.md](connect/SKILL.md)
+Full threshold table: [factors/README.md](factors/README.md)
 
-For each platform the user named, establish a connection string (or env var) and the right driver. See [references/platforms.md](references/platforms.md). First-time users can also use `aird init` to set up their connection interactively.
+---
 
-**STOP:** Confirm connection established.
+## Constraints
 
-### Step 3: Discover and Confirm Scope
+1. **Read-only**: Never CREATE, INSERT, UPDATE, DELETE, or DROP without explicit user request
+2. **Remediation is advisory**: Generate SQL suggestions; user executes
+3. **Scope confirmation**: Always confirm which tables before running queries
+4. **No credentials in output**: Connection strings stay in environment
 
-**Load** [discover/SKILL.md](discover/SKILL.md)
+---
 
-Enumerate schemas, tables, and columns. Then **Load** [interview/SKILL.md](interview/SKILL.md) (Phase 2) to walk through discoveries with the user — confirm scope, exclusions.
+## Entry Points
 
-**STOP:** Present discovery summary and confirm scope.
+**"Is my data AI-ready?"**
+-> Full assessment workflow (all factors, user picks workload level)
 
-### Step 4: Execute Assessment
+**"Assess the Clean factor"**
+-> Load [factors/0-clean.md](factors/0-clean.md), run just that factor
 
-**Load** [assess/SKILL.md](assess/SKILL.md)
+**"What's wrong with my data for RAG?"**
+-> L2 assessment, focus on factors that matter most for retrieval
 
-Run the assessment CLI (assess or composable discover → run → report → save). Score results at L1/L2/L3. Options include:
+**"Help me fix the Compliant issues"**
+-> Load [factors/5-compliant.md](factors/5-compliant.md) + [workflows/remediate.md](workflows/remediate.md)
 
-- `aird assess -i` for interactive guided flow
-- `--factor` to assess a single factor (e.g. `--factor clean`)
-- `--dry-run` to preview which tests would run without executing them
+**"Compare before and after"**
+-> Run assessment twice, diff results
 
-**STOP:** Report execution completion.
+---
 
-### Step 5: Interpret Results
+## CLI Users
 
-**Load** [interpret/SKILL.md](interpret/SKILL.md)
-
-Walk through results interactively. Then **Load** [interview/SKILL.md](interview/SKILL.md) (Phase 3) for failure triage — user confirms which failures matter and which to fix.
-
-**STOP:** Present findings and get triage decisions.
-
-### Step 6: Generate Fixes
-
-**Load** [remediate/SKILL.md](remediate/SKILL.md)
-
-For each failure the user wants to fix, generate specific suggestions using factor docs and remediation templates (when present). Group by effort. Present for review only. After the user applies fixes, they can re-assess with `--compare` (and optionally same `--context`) to see progress — see [assess/SKILL.md](assess/SKILL.md) § After the user applies fixes.
-
-**STOP:** Present fix suggestions for review.
-
-### Step 7: Save and Compare (Optional)
-
-**Load** [compare/SKILL.md](compare/SKILL.md)
-
-Results are saved to history when not using `--no-save`. Use `aird history` and `aird diff` to compare runs. On re-assess, use `--compare` to show progress. Additional comparison tools:
-
-- `aird compare` — side-by-side table comparison from the most recent assessment
-- `aird rerun` — re-run only failed tests and show the delta
-- `aird benchmark -c conn1 -c conn2` — N-way dataset comparison across multiple connections
-
-## Stopping Points
-
-- Step 1: After gathering user context
-- Step 2: After connection established
-- Step 3: After discovery and scope confirmation
-- Step 4: After test execution
-- Step 5: After results interpretation and triage
-- Step 6: After fix suggestions generated
-- Step 7: After comparison (if applicable)
-
-## Output
-
-- Assessment report (JSON or markdown, from CLI)
-- Optional context file (user-controlled, e.g. `--context`)
-- Assessment history (`~/.aird/assessments.db` or `AIRD_DB_PATH`)
-- Remediation suggestions (presented for review; user executes)
+If you have the `aird` CLI installed, load [cli/SKILL.md](cli/SKILL.md) for CLI-specific commands that automate the workflow above. The CLI handles discovery, test execution, scoring, storage, and comparison in a single tool.

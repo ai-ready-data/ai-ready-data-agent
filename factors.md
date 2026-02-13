@@ -1,3 +1,5 @@
+> **Reference input.** This file is used to guide factor file creation and test development. It is NOT the canonical factor documentation. For canonical factor docs with requirements, thresholds, assessment SQL, and remediation, see [skills/factors/](skills/factors/).
+
 ## Factors of AI-Ready Data
 
 | Factor | Factor Name | Definition | Topic Areas | Reasoning | Snowflake Capabilities |

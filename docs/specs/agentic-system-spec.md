@@ -43,7 +43,7 @@ The agent is **not** required to implement any of the assessment logic itself; i
 
 ### 3.1 Overview
 
-**Skills** are first-class guidance units. Each skill is a directory (or a single file) that contains at least a **SKILL.md** describing when to load the skill, prerequisites, steps, and forbidden actions. Skills do not implement assessment logic; they tell the agent what to do and what not to do, and which CLI commands to run.
+**Skills** are first-class guidance units organized in two layers. **Layer 1** (portable knowledge) contains factor definitions, assessment SQL, thresholds, remediation patterns, and workflow guides — everything an agent needs to assess data without a CLI. **Layer 2** (CLI orchestration) provides `aird` CLI commands for each workflow step, referencing Layer 1 for domain knowledge. Each skill is a markdown file describing when to load, prerequisites, steps, and forbidden actions. Skills do not implement assessment logic; they tell the agent what to do and what not to do.
 
 - **Parent skill** — One top-level workflow (e.g. assess-data) that covers the full flow: gather context → connect → discover → assess → interpret → remediate/compare. It defines intent routing (e.g. “user has connection string → skip to connect”) and when to load which sub-skill.
 - **Sub-skills** — connect, discover, assess, interpret, interview, remediate, compare. Each has a SKILL.md with:
@@ -82,7 +82,7 @@ Skills reference these by path (e.g. “Load `references/platforms.md`”) so th
 How an agent discovers “what to do”:
 
 1. **Entry** — User or docs point to **AGENTS.md** at repo root. AGENTS.md is the playbook: “You are an AI-ready data assessment agent …” and outlines the full workflow.
-2. **Workflow** — From AGENTS.md, the agent follows the steps. When a step says “Load skill X”, the agent reads the corresponding SKILL.md (e.g. `skills/connect/SKILL.md`).
+2. **Workflow** — From AGENTS.md, the agent follows the steps. When a step says “Load skill X”, the agent reads the corresponding SKILL.md (e.g. `skills/workflows/discover.md` or `skills/cli/connect.md`).
 3. **Intent routing** — The parent skill (e.g. assess-data) may define a table or list: “If user situation A → load connect; if B → load assess; …”. The agent uses that to jump to the right sub-skill when appropriate.
 
 No separate “skill registry” or runtime is required; discovery is by path and by following the playbook.
@@ -121,14 +121,20 @@ AGENTS.md does not replace the CLI spec; it tells the agent *when* and *why* to 
 Target layout for the agentic layer:
 
 - **AGENTS.md** — At repo root. Playbook for coding agents.
-- **skills/** — At repo root (sibling to `agent/`, `factors/`, `docs/`).
-  - **skills/SKILL.md** — Parent workflow (e.g. assess-data): intent routing, workflow steps, when to load sub-skills.
-  - **skills/connect/SKILL.md**, **skills/discover/SKILL.md**, **skills/assess/SKILL.md**, **skills/interpret/SKILL.md**, **skills/interview/SKILL.md**, **skills/remediate/SKILL.md**, **skills/compare/SKILL.md** — Sub-skills as needed.
-  - **skills/references/** — Shared reference docs (e.g. `platforms.md` for connection strings and drivers).
-  - **skills/README.md** — How to add or reference skills; points to this spec.
+- **skills/** — At repo root (sibling to `agent/`, `docs/`). Two layers:
+  - **Layer 1: Portable knowledge** (agent-agnostic, no CLI dependency)
+    - **skills/SKILL.md** — Universal entry point: intent routing, workflow steps, when to load sub-skills.
+    - **skills/factors/** — Single source of truth for factor definitions. Each file (e.g. `0-clean.md`) contains requirements, thresholds, assessment SQL, interpretation, remediation, and stack capabilities.
+    - **skills/platforms/** — Platform-specific SQL patterns and connection details (e.g. `snowflake.md`).
+    - **skills/workflows/** — Step-by-step workflow guides: discover, assess, interpret, remediate.
+  - **Layer 2: CLI orchestration** (for `aird` CLI users)
+    - **skills/cli/SKILL.md** — CLI-specific entry point. References Layer 1 for domain knowledge.
+    - **skills/cli/connect.md**, **assess.md**, **discover.md**, **interpret.md**, **remediate.md**, **compare.md** — CLI-specific commands for each workflow step.
+    - **skills/cli/references/** — CLI-specific reference docs (cli-commands.md, platforms.md, context-file.md).
+  - **skills/README.md** — Architecture explanation, how to add a platform, how to fork for a new domain.
 - **docs/specs/agentic-system-spec.md** — This spec.
 
-The **agent** package (CLI and core) remains separate from **skills**; skills reference the CLI and the framework but do not live inside the agent package. The README and AGENTS.md tell users and agents where to find “how to install” and “how to run.”
+The **agent** package (CLI and core) remains separate from **skills**; skills reference the CLI and the framework but do not live inside the agent package. Layer 1 skills can be used by any agent runtime without the CLI. Layer 2 skills provide CLI-specific orchestration and reference Layer 1 for domain knowledge. The README and AGENTS.md tell users and agents where to find “how to install” and “how to run.”
 
 ---
 

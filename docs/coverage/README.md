@@ -4,7 +4,7 @@ This doc tracks which requirement keys are implemented in which test suites and 
 
 Scoping logic: [agent/run.py](../agent/run.py) `_column_matches_requirement`. Thresholds: [agent/thresholds.py](../agent/thresholds.py).
 
-**Demo runbook:** [docs/demo-snowflake.md](../demo-snowflake.md) — run **Clean** assessment against Snowflake, scoped to your AI workload datasets. Survey is optional.
+**Factor docs:** [skills/factors/](../../skills/factors/) — canonical factor definitions with requirements, thresholds, assessment SQL, and remediation.
 
 ---
 

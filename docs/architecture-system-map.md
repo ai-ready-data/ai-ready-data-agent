@@ -352,9 +352,9 @@ flowchart TB
 |-----------|----------|
 | Playbook | `AGENTS.md` |
 | Parent skill | `skills/SKILL.md` |
-| Sub-skills | `skills/{connect,discover,assess,interpret,interview,remediate,compare,report,add-platform}/SKILL.md` |
-| References | `skills/references/{platforms,cli-commands,context-file,connections-manifest}.md` |
-| Factors | `factors/factor-00-clean.md`, `factor-01-contextual.md` |
+| Sub-skills | `skills/workflows/{discover,assess,interpret,remediate}.md`, `skills/cli/{connect,discover,assess,interpret,remediate,compare}.md` |
+| References | `skills/cli/references/{platforms,cli-commands,context-file,connections-manifest}.md` |
+| Factors | `skills/factors/0-clean.md`, `1-contextual.md`, `2-consumable.md`, `3-current.md`, `4-correlated.md`, `5-compliant.md` |
 | CLI entry | `agent/cli.py` |
 | Pipeline | `agent/pipeline.py` |
 | Suites | `agent/suites/definitions/*.yaml` |

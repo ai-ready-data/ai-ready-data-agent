@@ -86,18 +86,18 @@ Canonical definitions and rationale: [docs/definitions.md](docs/definitions.md).
 
 ## What's In This Repo
 
-### [The Factors](factors/)
+### [The Factors](skills/factors/)
 
-The AI-Ready Data Project defines six factors of AI-ready data. Each factor has requirements at all three workload levels.
+The AI-Ready Data Project defines six factors of AI-ready data. Each factor has requirements at all three workload levels. Factor docs are the single source of truth — each file includes requirements, thresholds, assessment SQL, remediation patterns, and stack capabilities.
 
 | Factor | Name | Definition |
 |--------|------|-------------|
-| **0** | [**Clean**](factors/factor-00-clean.md) | Accurate, complete, valid, and free of errors |
-| **1** | [**Contextual**](factors/factor-01-contextual.md) | Meaning is explicit and colocated with the data |
-| **2** | **Consumable** | *(to be added)* |
-| **3** | **Current** | *(to be added)* |
-| **4** | **Correlated** | *(to be added)* |
-| **5** | **Compliant** | *(to be added)* |
+| **0** | [**Clean**](skills/factors/0-clean.md) | Accurate, complete, valid, and free of errors |
+| **1** | [**Contextual**](skills/factors/1-contextual.md) | Meaning is explicit and colocated with the data |
+| **2** | [**Consumable**](skills/factors/2-consumable.md) | Right format and latencies for AI workloads |
+| **3** | [**Current**](skills/factors/3-current.md) | Reflects the present state, freshness enforced |
+| **4** | [**Correlated**](skills/factors/4-correlated.md) | Traceable from source to decisions |
+| **5** | [**Compliant**](skills/factors/5-compliant.md) | Governed, secure, policy-enforced |
 
 Canonical definitions: [docs/definitions.md](docs/definitions.md). Factor documents conform to [docs/specs/factor-spec.md](docs/specs/factor-spec.md).
 
@@ -189,7 +189,7 @@ aird benchmark -c "duckdb://db1.duckdb" -c "duckdb://db2.duckdb"
 
 ## For coding agents
 
-Start at **[AGENTS.md](AGENTS.md)** for the playbook. It outlines the workflow (interview → connect → discover → assess → interpret → remediate → compare), stopping points, and where to find the CLI, project, and skills. Sub-skills live in [skills/](skills/) with step-by-step guidance per phase. Key commands: `aird init` (setup), `aird assess` (full pipeline), `aird benchmark` (multi-dataset comparison), `aird compare`/`aird diff` (result comparison), `aird rerun` (retry failures).
+Start at **[AGENTS.md](AGENTS.md)** for the playbook. It outlines the workflow (discover → connect → assess → interpret → remediate → compare), stopping points, and where to find the CLI, project, and skills. Skills live in [skills/](skills/) with a two-layer architecture: portable knowledge (factors, platforms, workflows) and CLI orchestration (skills/cli/). Key commands: `aird init` (setup), `aird assess` (full pipeline), `aird benchmark` (multi-dataset comparison), `aird compare`/`aird diff` (result comparison), `aird rerun` (retry failures).
 
 ## Contributing
 

@@ -57,4 +57,4 @@ Use this when you’ve just landed on the repo (e.g. from the GitHub URL) and wa
 
 ## For coding agents
 
-Start at [AGENTS.md](../AGENTS.md) and use the skills in [skills/](../skills/) for the full workflow: connect → discover → assess → interpret → remediate → compare. The steps above are the minimal path to validate the CLI and Clean suite E2E.
+Start at [AGENTS.md](../AGENTS.md) and use the skills in [skills/](../skills/) for the full workflow: discover → connect → assess → interpret → remediate → compare. CLI-specific commands are in [skills/cli/](../skills/cli/). Factor knowledge (thresholds, SQL, remediation) is in [skills/factors/](../skills/factors/). The steps above are the minimal path to validate the CLI and Clean suite E2E.
