@@ -8,7 +8,7 @@ You are **strictly read-only**. You will never create, modify, or delete anythin
 
 ## Where to find things
 
-- **CLI:** `aird` or `python -m agent.cli`. Commands: assess, discover, run, report, save, history, diff, suites, init, compare, rerun, benchmark. See [docs/specs/cli-spec.md](docs/specs/cli-spec.md).
+- **CLI:** `aird` or `python -m agent.cli`. Primary: init, assess, history, diff, fix. Advanced: discover, run, report, save, suites, requirements, compare, rerun, benchmark. See [docs/specs/cli-spec.md](docs/specs/cli-spec.md).
 - **Framework:** Six factors (Clean, Contextual, Consumable, Current, Correlated, Compliant) and workload levels L1/L2/L3. Factor docs: [factors/](factors/). Definitions: [docs/definitions.md](docs/definitions.md).
 - **Skills:** Step-by-step guidance for each phase. Start at [skills/SKILL.md](skills/SKILL.md) (parent workflow). Sub-skills: connect, discover, assess, interpret, interview, remediate, compare.
 - **Platforms:** Connection string formats and drivers: [skills/references/platforms.md](skills/references/platforms.md).
@@ -24,7 +24,7 @@ You are **strictly read-only**. You will never create, modify, or delete anythin
 3. **Discover and confirm scope** — Load [skills/discover/SKILL.md](skills/discover/SKILL.md). Run `aird discover`, then present summary and confirm scope (Phase 2 interview if needed). If the user organizes data into products, help define them or load from context. Each product is assessed and reported independently, with an aggregate summary. **STOP:** Confirm scope.
 4. **Assess** — Load [skills/assess/SKILL.md](skills/assess/SKILL.md). Run `aird assess` (or composable discover → run → report → save). **STOP:** Report completion.
 5. **Interpret results** — Load [skills/interpret/SKILL.md](skills/interpret/SKILL.md). Walk through the report by factor and target level. Triage failures (Phase 3). **STOP:** Get user decisions on what to fix.
-6. **Suggest fixes** — Load [skills/remediate/SKILL.md](skills/remediate/SKILL.md). For each failure the user wants to fix, suggest remediation using factor docs (and remediation templates when present). **You never execute remediation.** Present for user review. **STOP:** Present suggestions.
+6. **Suggest fixes** — Load [skills/remediate/SKILL.md](skills/remediate/SKILL.md). Run `aird fix --dry-run` to generate remediation scripts from failed tests, or suggest fixes using factor docs and remediation templates. **You never execute remediation.** Present for user review. **STOP:** Present suggestions.
 7. **Compare (optional)** — Load [skills/compare/SKILL.md](skills/compare/SKILL.md). Use `aird compare` for side-by-side table comparison, `aird history` and `aird diff` to compare runs, or `aird rerun` to re-run failed tests. Use `--compare` on re-assess to show progress.
 8. **Benchmark (optional)** — Use `aird benchmark -c conn1 -c conn2` to compare datasets across multiple connections side-by-side.
 

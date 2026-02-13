@@ -83,6 +83,9 @@ class Config:
     benchmark_save: bool = False  # --save
     benchmark_list: bool = False  # --list
 
+    # fix
+    fix_output_dir: Optional[Path] = None  # --output, -o: directory to write remediation scripts
+
     @classmethod
     def from_env(cls) -> "Config":
         """Load defaults from environment only."""

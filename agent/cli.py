@@ -75,10 +75,11 @@ _ARG_MAP: dict = {
     "label":                "benchmark_labels",
     "save":                 "benchmark_save",
     "list":                 "benchmark_list",
+    "fix_output":           "fix_output_dir",
 }
 
 # Args that need Path() wrapping when present.
-_PATH_ARGS = {"context", "thresholds", "survey_answers", "db_path"}
+_PATH_ARGS = {"context", "thresholds", "survey_answers", "db_path", "fix_output"}
 
 
 def _config_from_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> Config:
@@ -501,12 +502,18 @@ def cmd_benchmark(cfg: Config) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(prog="aird", description="AI-Ready Data assessment CLI")
+    parser = argparse.ArgumentParser(
+        prog="aird",
+        description="AI-Ready Data assessment CLI. Primary: init, assess, history, diff, fix.",
+        epilog="Advanced: discover, run, report, save (composable); suites, compare, rerun, benchmark.",
+    )
     parser.add_argument("--log-level", default=None, help="Log level")
     parser.add_argument("--db-path", default=None, help="SQLite DB path")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    # assess
+    # ── Primary commands (80% use case) ─────────────────────────────────────
+    subparsers.add_parser("init", help="Interactive setup wizard for first-time users")
+
     p_assess = subparsers.add_parser("assess", help="Full pipeline: discover → run → report → save")
     p_assess.add_argument("-c", "--connection", default=None, dest="connection")
     p_assess.add_argument("-s", "--schema", action="append", default=[], dest="schema")
@@ -527,8 +534,24 @@ def main() -> None:
     p_assess.add_argument("--factor", default=None, help="Filter to a single factor (e.g., clean, contextual)")
     p_assess.add_argument("--product", default=None, help="Assess only the named data product from context file")
 
-    # discover
-    p_disc = subparsers.add_parser("discover", help="Connect and output inventory")
+    p_hist = subparsers.add_parser("history", help="List saved assessments")
+    p_hist.add_argument("--connection", default=None, dest="connection_filter")
+    p_hist.add_argument("--product", default=None, dest="product_filter", help="Filter by data product name")
+    p_hist.add_argument("-n", "--limit", type=int, default=20)
+
+    p_diff = subparsers.add_parser("diff", help="Compare two reports")
+    p_diff.add_argument("left_id", nargs="?", default=None)
+    p_diff.add_argument("right_id", nargs="?", default=None)
+    p_diff.add_argument("--left", default=None)
+    p_diff.add_argument("--right", default=None)
+
+    p_fix = subparsers.add_parser("fix", help="Generate remediation scripts from failed tests")
+    p_fix.add_argument("--id", default=None, dest="id", help="Assessment ID (default: latest)")
+    p_fix.add_argument("--dry-run", action="store_true", help="Print suggestions only, do not write files")
+    p_fix.add_argument("-o", "--output", default=None, dest="fix_output", help="Directory to write SQL scripts")
+
+    # ── Advanced / composable commands ───────────────────────────────────────
+    p_disc = subparsers.add_parser("discover", help="[Advanced] Connect and output inventory")
     p_disc.add_argument("-c", "--connection", default=None)
     p_disc.add_argument("-s", "--schema", action="append", default=[], dest="schema")
     p_disc.add_argument("-t", "--tables", action="append", default=[], dest="tables")
@@ -536,8 +559,7 @@ def main() -> None:
     p_disc.add_argument("-o", "--output", default="stdout")
     p_disc.add_argument("--inventory", default=None, help="Write inventory to file (default stdout)")
 
-    # run
-    p_run = subparsers.add_parser("run", help="Run tests from inventory")
+    p_run = subparsers.add_parser("run", help="[Advanced] Run tests from inventory")
     p_run.add_argument("-c", "--connection", default=None)
     p_run.add_argument("--inventory", default="-")
     p_run.add_argument("--suite", default="auto")
@@ -548,8 +570,7 @@ def main() -> None:
     p_run.add_argument("--dry-run", action="store_true")
     p_run.add_argument("--audit", action="store_true")
 
-    # report
-    p_rep = subparsers.add_parser("report", help="Build report from results or load by id")
+    p_rep = subparsers.add_parser("report", help="[Advanced] Build report from results or load by id")
     p_rep.add_argument("--results", default=None)
     p_rep.add_argument("--inventory", default=None)
     p_rep.add_argument("--thresholds", default=None)
@@ -557,34 +578,14 @@ def main() -> None:
     p_rep.add_argument("--id", default=None, dest="id")
     p_rep.add_argument("-o", "--output", default="markdown")
 
-    # save
-    p_save = subparsers.add_parser("save", help="Persist report to history")
+    p_save = subparsers.add_parser("save", help="[Advanced] Persist report to history")
     p_save.add_argument("--report", default="-")
 
-    # history
-    p_hist = subparsers.add_parser("history", help="List saved assessments")
-    p_hist.add_argument("--connection", default=None, dest="connection_filter")
-    p_hist.add_argument("--product", default=None, dest="product_filter", help="Filter by data product name")
-    p_hist.add_argument("-n", "--limit", type=int, default=20)
+    subparsers.add_parser("suites", help="[Advanced] List test suites")
 
-    # diff
-    p_diff = subparsers.add_parser("diff", help="Compare two reports")
-    p_diff.add_argument("left_id", nargs="?", default=None)
-    p_diff.add_argument("right_id", nargs="?", default=None)
-    p_diff.add_argument("--left", default=None)
-    p_diff.add_argument("--right", default=None)
+    subparsers.add_parser("requirements", help="[Advanced] List registered requirements and default thresholds")
 
-    # suites
-    subparsers.add_parser("suites", help="List test suites")
-
-    # requirements
-    subparsers.add_parser("requirements", help="List registered requirements and default thresholds")
-
-    # init
-    subparsers.add_parser("init", help="Interactive setup wizard for first-time users")
-
-    # compare
-    p_compare = subparsers.add_parser("compare", help="Compare assessment results for two tables side-by-side")
+    p_compare = subparsers.add_parser("compare", help="[Advanced] Compare assessment results for two tables side-by-side")
     p_compare.add_argument("-c", "--connection", default=None, dest="connection")
     p_compare.add_argument("--tables", default=None, dest="compare_tables", action="append",
                            help="Comma-separated table names to compare (e.g., main.t1,main.t2)")
@@ -592,15 +593,13 @@ def main() -> None:
     p_compare.add_argument("--thresholds", default=None)
     p_compare.add_argument("--no-save", action="store_true")
 
-    # rerun
-    p_rerun = subparsers.add_parser("rerun", help="Re-run failed tests from the most recent assessment")
+    p_rerun = subparsers.add_parser("rerun", help="[Advanced] Re-run failed tests from the most recent assessment")
     p_rerun.add_argument("-c", "--connection", default=None, dest="connection")
     p_rerun.add_argument("--id", default=None, dest="rerun_id", help="Assessment ID to re-run (default: most recent)")
     p_rerun.add_argument("--thresholds", default=None)
     p_rerun.add_argument("--no-save", action="store_true")
 
-    # benchmark
-    p_bench = subparsers.add_parser("benchmark", help="Run assessment on multiple connections and compare results")
+    p_bench = subparsers.add_parser("benchmark", help="[Advanced] Run assessment on multiple connections and compare results")
     p_bench.add_argument("-c", "--connection", action="append", default=[], dest="benchmark_connection",
                          help="Connection string (repeatable, at least 2 required)")
     p_bench.add_argument("--label", action="append", default=[], dest="label",
@@ -628,7 +627,10 @@ def main() -> None:
 
     try:
         _validate_config(cfg)
-        if args.command == "assess":
+        if args.command == "fix":
+            from agent.commands.fix import run_fix
+            run_fix(cfg)
+        elif args.command == "assess":
             cmd_assess(cfg)
         elif args.command == "discover":
             cmd_discover(cfg)

@@ -20,21 +20,27 @@ This document specifies the command-line interface for the AI-Ready Data assessm
 
 Commands are split into **convenience** (one-shot or simple) and **composable** (primitives that produce/consume artifacts). Optional/future commands are listed for completeness.
 
-### 2.1 Convenience commands
+### 2.1 Primary commands (core workflow)
 
 | Command | Purpose |
 |--------|---------|
-| **assess** | Full pipeline in one shot: connect → discover → generate tests → execute → score → report → (optional) save → output. Single connection via `-c` or env. Equivalent to running discover, then run, then report, then optionally save, with sensible defaults. |
 | **init** | Interactive setup wizard for first-time users. Walks through connection, scope, and context configuration. |
+| **assess** | Full pipeline in one shot: connect → discover → generate tests → execute → score → report → (optional) save → output. Single connection via `-c` or env. Equivalent to running discover, then run, then report, then optionally save, with sensible defaults. |
 | **history** | List saved assessments from local SQLite. Optional filters: connection, limit. |
 | **diff** | Compare two reports. Input: two assessment ids, or two report files (e.g. `diff <id1> <id2>` or `diff --left report1.json --right report2.json`). |
+| **fix** | Generate remediation scripts from failed tests in a saved assessment. With `--dry-run`, print suggestions only; with `-o <dir>`, write SQL scripts to the given directory. |
+
+### 2.2 Advanced / composable commands
+
+| Command | Purpose |
+|--------|---------|
 | **suites** | List available test suites (e.g. auto, common, snowflake). No side effects. |
 | **requirements** | List registered requirements and default thresholds from the canonical registry. |
 | **compare** | Compare assessment results for two tables side-by-side from the same connection. |
 | **rerun** | Re-run failed tests from the most recent (or specified) assessment and show improvement delta. |
 | **benchmark** | N-way comparison: run assessments on multiple connections (repeatable `-c`, at least 2) and compare results side-by-side. |
 
-### 2.2 Composable commands
+### 2.3 Composable commands
 
 | Command | Input | Output | Purpose |
 |---------|--------|--------|---------|
@@ -43,7 +49,7 @@ Commands are split into **convenience** (one-shot or simple) and **composable** 
 | **report** | Results (file or stdin), inventory (file; or embedded in results if defined), thresholds, optional context | Report (JSON or markdown to stdout/file) | Build report from results. Enables re-score with different thresholds or re-render in another format. |
 | **save** | Report (file or stdin) | Assessment id (stdout) | Persist report to local history (SQLite). Enables saving a report produced by `report` or by another tool. |
 
-### 2.3 Optional / future
+### 2.4 Optional / future
 
 | Command | Purpose |
 |--------|---------|
@@ -215,6 +221,20 @@ Pipeline: **connection + context** → discover → **inventory** → run (gener
 
 **Behavior:** For each connection: connect → discover → run → score. Then produce a combined comparison report showing per-connection scores and factor summaries side-by-side. Output uses Rich colored tables when running in a TTY.
 
+### 4.13 fix
+
+**Purpose:** Generate remediation scripts from failed tests in a saved assessment. Bridges the gap between "what failed" and "how to fix" by producing actionable SQL (or dbt-ready) suggestions.
+
+**Arguments (summary):**
+
+| Argument | Default | Description |
+|----------|--------|-------------|
+| `--id` | most recent | Assessment ID to generate fixes from. Defaults to the most recent saved assessment. |
+| `--dry-run` | false | Print suggestions to stdout only; do not write files. |
+| `-o`, `--output` | — | Directory path to write SQL scripts. When set (and not `--dry-run`), one `.sql` file per failed test is written. |
+
+**Behavior:** Loads the specified (or most recent) assessment from history, extracts failed results, and for each failure looks up a remediation template by requirement key. Substitutes schema, table, and column from the test_id. With `--dry-run`, outputs suggestions to stdout (Rich panels in TTY, plain text otherwise). With `-o <dir>`, writes one file per failure (e.g. `01_null_rate_products.sql`). Requires at least one saved assessment; exits with usage error if history is empty.
+
 ---
 
 ## 5. Configuration and state
@@ -325,7 +345,7 @@ We diverge:
 
 ## 9. Implementation notes
 
-- All 12 commands are implemented: **assess**, **discover**, **run**, **report**, **save**, **history**, **diff**, **suites**, **init**, **compare**, **rerun**, **benchmark**.
+- All 13 commands are implemented: **init**, **assess**, **history**, **diff**, **fix** (primary); **discover**, **run**, **report**, **save**, **suites**, **requirements**, **compare**, **rerun**, **benchmark** (advanced).
 - **assess** is implemented as a composition of discover → run → report → save (when not --no-save) → output. For component boundaries and package layout, see [design-cli-architecture.md](../log/design-cli-architecture.md).
 - Artifact schemas (inventory, results, report) are defined elsewhere (e.g. agent schema docs or test suite spec); this spec references them and the flow between commands.
 - **Rich UI:** Output uses Rich library for colored tables, progress bars, and formatted reports when running in a TTY. Non-TTY output falls back to plain text for machine consumption.

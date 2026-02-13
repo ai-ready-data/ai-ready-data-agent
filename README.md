@@ -167,6 +167,10 @@ aird save --report report.json
 # View assessment history
 aird history
 
+# Generate remediation scripts from failed tests
+aird fix --dry-run
+aird fix -o ./remediation
+
 # List available suites
 aird suites
 

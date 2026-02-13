@@ -1,5 +1,7 @@
 # Roadmap
 
+**Strategic direction:** See [ACTION-PLAN.md](ACTION-PLAN.md) for synthesized priorities, validation milestones, CLI simplification, and remediation focus.
+
 ## Completed (Phases 1–4)
 
 - Declarative YAML suite definitions with composition
@@ -22,6 +24,7 @@
 - Additional factors beyond Clean (Contextual, Consumable, Current, Correlated, Compliant — partially implemented for Snowflake)
 - Remediation templates (auto-generated fix suggestions)
 - Profile/config management (`aird profile`)
+- eam use, CI/CD integration, history sharing, multi-user workflows.
 
 ## Removed
 
