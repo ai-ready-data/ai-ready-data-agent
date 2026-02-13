@@ -1,0 +1,170 @@
+# Canonical requirements registry: source of truth for all requirement keys,
+# their factor, threshold direction, and default L1/L2/L3 thresholds.
+#
+# direction: "lte" = lower is better (rate-of-bad metrics); "gte" = higher is better (coverage metrics).
+# default_thresholds: per-workload thresholds (l1=analytics, l2=RAG, l3=training).
+
+# ── Factor 0: Clean ──────────────────────────────────────────────────────────
+table_discovery:
+  name: Table Discovery
+  description: Number of tables discovered in the data source (informational, always passes).
+  factor: clean
+  direction: lte
+  default_thresholds: {l1: 1.0, l2: 1.0, l3: 1.0}
+
+null_rate:
+  name: Null Rate
+  description: Fraction of null values per column. Lower is better.
+  factor: clean
+  direction: lte
+  default_thresholds: {l1: 0.2, l2: 0.05, l3: 0.01}
+
+duplicate_rate:
+  name: Duplicate Rate
+  description: Fraction of duplicate rows per table. Lower is better.
+  factor: clean
+  direction: lte
+  default_thresholds: {l1: 0.1, l2: 0.02, l3: 0.01}
+
+format_inconsistency_rate:
+  name: Format Inconsistency Rate
+  description: Fraction of values with inconsistent format (e.g. date strings that fail to parse). Lower is better.
+  factor: clean
+  direction: lte
+  default_thresholds: {l1: 0.1, l2: 0.05, l3: 0.01}
+
+type_inconsistency_rate:
+  name: Type Inconsistency Rate
+  description: Fraction of values with inconsistent type (e.g. non-numeric in numeric column). Lower is better.
+  factor: clean
+  direction: lte
+  default_thresholds: {l1: 0.05, l2: 0.02, l3: 0.01}
+
+zero_negative_rate:
+  name: Zero/Negative Rate
+  description: Fraction of zero or negative values in numeric columns expected to be positive. Lower is better.
+  factor: clean
+  direction: lte
+  default_thresholds: {l1: 0.05, l2: 0.02, l3: 0.01}
+
+# ── Factor 1: Contextual ─────────────────────────────────────────────────────
+primary_key_defined:
+  name: Primary Key Defined
+  description: Fraction of tables with a declared primary key constraint. Higher is better.
+  factor: contextual
+  direction: gte
+  default_thresholds: {l1: 0.5, l2: 0.8, l3: 0.95}
+
+semantic_model_coverage:
+  name: Semantic Model Coverage
+  description: Fraction of tables represented in a semantic model or view. Higher is better.
+  factor: contextual
+  direction: gte
+  default_thresholds: {l1: 0.2, l2: 0.5, l3: 0.8}
+
+foreign_key_coverage:
+  name: Foreign Key Coverage
+  description: Fraction of tables with at least one foreign key constraint. Higher is better.
+  factor: contextual
+  direction: gte
+  default_thresholds: {l1: 0.3, l2: 0.6, l3: 0.8}
+
+temporal_scope_present:
+  name: Temporal Scope Present
+  description: Fraction of tables with temporal columns (dates, timestamps). Higher is better.
+  factor: contextual
+  direction: gte
+  default_thresholds: {l1: 0.3, l2: 0.6, l3: 0.9}
+
+# ── Factor 2: Consumable ──────────────────────────────────────────────────────
+# Is the data served in the right format and at the right latencies for AI workloads?
+clustering_coverage:
+  name: Clustering Coverage
+  description: Fraction of large tables with clustering keys defined. Higher is better.
+  factor: consumable
+  direction: gte
+  default_thresholds: {l1: 0.2, l2: 0.5, l3: 0.8}
+
+search_optimization_coverage:
+  name: Search Optimization Coverage
+  description: Fraction of tables with search optimization enabled. Higher is better.
+  factor: consumable
+  direction: gte
+  default_thresholds: {l1: 0.1, l2: 0.3, l3: 0.5}
+
+# ── Factor 3: Current ─────────────────────────────────────────────────────────
+# Does the data reflect the present state, with freshness enforced by systems?
+change_tracking_coverage:
+  name: Change Tracking Coverage
+  description: Fraction of tables with change tracking enabled. Higher is better.
+  factor: current
+  direction: gte
+  default_thresholds: {l1: 0.2, l2: 0.5, l3: 0.8}
+
+stream_coverage:
+  name: Stream Coverage
+  description: Fraction of tables with associated streams for CDC. Higher is better.
+  factor: current
+  direction: gte
+  default_thresholds: {l1: 0.1, l2: 0.3, l3: 0.6}
+
+data_freshness_pass_rate:
+  name: Data Freshness Pass Rate
+  description: Fraction of tables updated within freshness SLA. Higher is better.
+  factor: current
+  direction: gte
+  default_thresholds: {l1: 0.5, l2: 0.8, l3: 0.95}
+
+dynamic_table_coverage:
+  name: Dynamic Table Coverage
+  description: Fraction of derived tables that are dynamic tables. Higher is better.
+  factor: current
+  direction: gte
+  default_thresholds: {l1: 0.0, l2: 0.2, l3: 0.5}
+
+# ── Factor 4: Correlated ──────────────────────────────────────────────────────
+# Is the data traceable from source to every decision it informs?
+object_tag_coverage:
+  name: Object Tag Coverage
+  description: Fraction of tables with at least one tag applied. Higher is better.
+  factor: correlated
+  direction: gte
+  default_thresholds: {l1: 0.2, l2: 0.5, l3: 0.8}
+
+column_tag_coverage:
+  name: Column Tag Coverage
+  description: Fraction of columns with at least one tag applied. Higher is better.
+  factor: correlated
+  direction: gte
+  default_thresholds: {l1: 0.1, l2: 0.3, l3: 0.6}
+
+lineage_queryable:
+  name: Lineage Queryable
+  description: Whether lineage data is available via ACCESS_HISTORY. Higher is better.
+  factor: correlated
+  direction: gte
+  default_thresholds: {l1: 0.5, l2: 0.8, l3: 1.0}
+
+# ── Factor 5: Compliant ───────────────────────────────────────────────────────
+# Is the data governed with explicit ownership, enforced access, and AI-specific safeguards?
+masking_policy_coverage:
+  name: Masking Policy Coverage
+  description: Fraction of PII columns with masking policies applied. Higher is better.
+  factor: compliant
+  direction: gte
+  default_thresholds: {l1: 0.3, l2: 0.7, l3: 0.95}
+
+row_access_policy_coverage:
+  name: Row Access Policy Coverage
+  description: Fraction of tables with row access policies. Higher is better.
+  factor: compliant
+  direction: gte
+  default_thresholds: {l1: 0.1, l2: 0.3, l3: 0.6}
+
+sensitive_column_tagged:
+  name: Sensitive Column Tagged
+  description: Fraction of likely-sensitive columns with sensitivity tags. Higher is better.
+  factor: compliant
+  direction: gte
+  default_thresholds: {l1: 0.2, l2: 0.5, l3: 0.9}
+
