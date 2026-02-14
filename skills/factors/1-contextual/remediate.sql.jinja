@@ -1,0 +1,24 @@
+{# Factor 1: Contextual — Remediation SQL (Snowflake) #}
+{# Template variables: database, schema, table, column, description #}
+
+
+{# --- comment_coverage: add a column comment --- #}
+{% block comment_coverage_column %}
+COMMENT ON COLUMN {{ database }}.{{ schema }}.{{ table }}.{{ column }} IS
+'{{ description }}';
+{% endblock %}
+
+
+{# --- comment_coverage: add a table comment --- #}
+{% block comment_coverage_table %}
+COMMENT ON TABLE {{ database }}.{{ schema }}.{{ table }} IS
+'{{ description }}';
+{% endblock %}
+
+
+{# --- comment_coverage: AI-generate a table description (Snowflake Cortex) --- #}
+{% block comment_coverage_ai_generate %}
+SELECT SNOWFLAKE.CORTEX.AI_GENERATE_TABLE_DESC(
+    '{{ database }}', '{{ schema }}', '{{ table }}'
+) AS ai_description;
+{% endblock %}

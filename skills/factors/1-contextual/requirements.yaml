@@ -1,0 +1,21 @@
+# Factor 1: Contextual — Requirements & Tests
+#
+# Requirements are high-level properties the data must have.
+# Tests are specific, measurable checks that verify a requirement.
+
+factor_id: 1
+factor_name: Contextual
+
+requirements:
+  - key: documented_semantics
+    name: Documented semantics
+    description: Data assets carry explicit, machine-readable descriptions so AI systems can interpret meaning without human context.
+    tests:
+      - key: comment_coverage
+        description: Fraction of columns with non-empty comments in the assessed schema
+        direction: gte                 # gte = higher is better
+        scope: schema
+        thresholds:
+          L1: 0.30
+          L2: 0.70
+          L3: 0.90

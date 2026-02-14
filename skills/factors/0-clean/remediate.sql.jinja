@@ -1,0 +1,24 @@
+{# Factor 0: Clean — Remediation SQL (Snowflake) #}
+{# Template variables: database, schema, table, column, default_value #}
+
+
+{# --- null_rate: fill nulls with a default value --- #}
+{% block null_rate_fill %}
+UPDATE {{ database }}.{{ schema }}.{{ table }}
+SET {{ column }} = '{{ default_value }}'
+WHERE {{ column }} IS NULL;
+{% endblock %}
+
+
+{# --- null_rate: add NOT NULL constraint (run after filling nulls) --- #}
+{% block null_rate_not_null %}
+ALTER TABLE {{ database }}.{{ schema }}.{{ table }}
+ALTER COLUMN {{ column }} SET NOT NULL;
+{% endblock %}
+
+
+{# --- null_rate: set default for future inserts --- #}
+{% block null_rate_default %}
+ALTER TABLE {{ database }}.{{ schema }}.{{ table }}
+ALTER COLUMN {{ column }} SET DEFAULT '{{ default_value }}';
+{% endblock %}

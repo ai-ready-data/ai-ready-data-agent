@@ -1,0 +1,22 @@
+# Factor 0: Clean — Requirements & Tests
+#
+# Requirements are high-level properties the data must have.
+# Tests are specific, measurable checks that verify a requirement.
+# One requirement can have many tests.
+
+factor_id: 0
+factor_name: Clean
+
+requirements:
+  - key: data_completeness
+    name: Data completeness
+    description: Data assets should not have missing values that compromise downstream consumption.
+    tests:
+      - key: null_rate
+        description: Fraction of null values per column
+        direction: lte                 # lte = lower is better
+        scope: column                  # assessed per column
+        thresholds:
+          L1: 0.20
+          L2: 0.05
+          L3: 0.01

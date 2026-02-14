@@ -1,0 +1,35 @@
+{# Factor 1: Contextual — Assessment SQL (Snowflake) #}
+{# Template variables: database, schema #}
+
+
+{# --- comment_coverage (per schema) --- #}
+{# Test for requirement: documented_semantics #}
+{# Measures the fraction of columns that have a non-empty comment. #}
+{# Joins to tables to filter to BASE TABLEs only. #}
+{% block comment_coverage %}
+SELECT
+  COUNT_IF(c.comment IS NOT NULL AND c.comment != '') * 1.0
+    / NULLIF(COUNT(*), 0) AS value
+FROM information_schema.columns c
+JOIN information_schema.tables t
+  ON c.table_name = t.table_name AND c.table_schema = t.table_schema
+WHERE c.table_schema = '{{ schema }}'
+  AND t.table_type = 'BASE TABLE'
+{% endblock %}
+
+
+{# --- Diagnostic: columns missing comments --- #}
+{# Lists specific columns that lack descriptions. #}
+{% block diag_missing_comments %}
+SELECT
+    c.table_name,
+    c.column_name,
+    c.data_type
+FROM information_schema.columns c
+JOIN information_schema.tables t
+  ON c.table_name = t.table_name AND c.table_schema = t.table_schema
+WHERE c.table_schema = '{{ schema }}'
+  AND t.table_type = 'BASE TABLE'
+  AND (c.comment IS NULL OR c.comment = '')
+ORDER BY c.table_name, c.ordinal_position
+{% endblock %}

@@ -1,0 +1,39 @@
+{# Factor 0: Clean — Assessment SQL (Snowflake) #}
+{# Template variables: database, schema, table, column, sample_rows #}
+
+
+{# --- null_rate (per column) --- #}
+{# Measures the fraction of null values in a single column. #}
+{# Run once per column of interest (PKs, required fields, join keys). #}
+{% block null_rate %}
+SELECT
+  '{{ column }}' AS column_name,
+  COUNT_IF({{ column }} IS NULL) * 1.0 / NULLIF(COUNT(*), 0) AS value
+FROM {{ database }}.{{ schema }}.{{ table }}
+{% endblock %}
+
+
+{# --- null_rate_sampled (per column, for large tables) --- #}
+{# Uses TABLESAMPLE to estimate null rate on large tables (>1M rows). #}
+{# sample_rows defaults to 100000 if not provided. #}
+{% block null_rate_sampled %}
+SELECT
+  '{{ column }}' AS column_name,
+  COUNT_IF({{ column }} IS NULL) * 1.0 / NULLIF(COUNT(*), 0) AS value
+FROM {{ database }}.{{ schema }}.{{ table }}
+  TABLESAMPLE ({{ sample_rows | default(100000) }} ROWS)
+{% endblock %}
+
+
+{# --- Diagnostic: schema-wide null summary --- #}
+{# Not scored. Lists all columns and their nullability declaration. #}
+{% block diag_null_summary %}
+SELECT
+    table_name,
+    column_name,
+    data_type,
+    is_nullable
+FROM information_schema.columns
+WHERE table_schema = '{{ schema }}'
+ORDER BY table_name, ordinal_position
+{% endblock %}
